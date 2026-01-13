@@ -197,9 +197,9 @@ This implementation follows the 42 school Webserv project requirements:
 The following diagram illustrates the project's 8-phase development timeline with task dependencies and team assignments:
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#e1f5fe', 'primaryTextColor': '#01579b', 'primaryBorderColor': '#0288d1', 'lineColor': '#424242', 'secondaryColor': '#fff3e0', 'tertiaryColor': '#f3e5f5'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#e1f5fe', 'primaryTextColor': '#01579b', 'primaryBorderColor': '#0288d1', 'lineColor': '#424242', 'secondaryColor': '#fff3e0', 'tertiaryColor': '#f3e5f5'}, 'flowchart': {'curve': 'basis', 'padding': 15}}}%%
 
-flowchart TD
+flowchart LR
     subgraph Phase0["Phase 0: Foundation & Setup (Days 0-7)"]
         A1["<b>A1</b><br/>Project Structure Setup<br/>Duration: 2d | Float: 0<br/>All Team"]
         A2["<b>A2</b><br/>Makefile Creation<br/>Duration: 1d | Float: 0<br/>All Team"]
