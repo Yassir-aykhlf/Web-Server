@@ -1,13 +1,26 @@
-# Project Plan: phases 0-3
+# Project Plan: Phases 0-3
 
 **Goal:** Establish a non-blocking HTTP server capable of accepting connections, parsing configs, and handling basic GET requests.
+
+**Project Duration:** Days 0-27  
+**Team Size:** 3 Students
+
+---
+
+## Table of Contents
+
+1. [Roles](#1-roles)
+2. [Quick Reference: Key Evaluation Requirements](#2-quick-reference-key-evaluation-requirements)
+3. [File Implementation Details](#3-file-implementation-details)
+4. [The Plan (Dependency Diagram)](#4-the-plan)
+5. [Milestone Checkpoints](#5-milestone-checkpoints)
 
 ---
 
 ## 1. Roles
 
 ### Student 1: Configuration
-**Focus:** Configuration parsing, Validation, Data Structures.
+**Focus:** Configuration parsing, Validation, Data Structures.  
 **Goal:** Your code runs first. You read the file, ensure the server settings are valid, and provide a lookup mechanism so the other students know which port to open and where files live.
 <details>
   <summary>Details</summary>
@@ -45,14 +58,14 @@
     *   It acts as the API for Student 2 and 3. They will ask this class: "I received a request for port 8080 with host header 'google.com', which ServerConfig do I use?"
 *   **Definition of Done:** The entry point class that Student 2 will instantiate in `main.cpp`.
 
-#### **Task B4: ConfigParser - Tokenizer (The Lexer)**
+#### **Task B4: ConfigParser - Tokenizer**
 *   **The Purpose:** Reading a file character-by-character is messy and bug-prone. It is much easier to process a file if you first break it into "words" (tokens).
 *   **The Goal:** Write a function that reads the raw text file and splits it into a `std::vector<std::string>`.
     *   It should treat special characters like `{`, `}`, and `;` as separate tokens.
     *   It should strip out comments (`#`) and extra whitespace.
 *   **Definition of Done:** Input: `server { listen 80; }`. Output Vector: `["server", "{", "listen", "80", ";", "}"]`.
 
-#### **Task B5: ConfigParser - Blocks (The Parser)**
+#### **Task B5: ConfigParser - Blocks**
 *   **The Purpose:** Now that you have a list of tokens, you need to give them meaning and structural hierarchy.
 *   **The Goal:** Implement the logic that iterates through your tokens and fills the classes created in B1, B2, and B3.
     *   It detects when a `server` block starts and creates a new `ServerConfig`.
@@ -73,8 +86,14 @@
 *   **The Goal:** Generate hardcoded HTML content.
     *   If the config file doesn't specify a custom `404.html`, your code should provide a default internal string (e.g., `<html><body><h1>404 Not Found</h1></body></html>`).
 *   **Definition of Done:** Student 3 can ask for the "404 page content", and you return either the user's custom file content OR your default HTML string.
+
+**Integration Points with Other Students:**
+- Student 2 depends on your `Config` class to know which ports to open
+- Student 3 depends on your `LocationConfig` to determine routing rules
+- Your code must be ready by **Day 19** for seamless integration
 </details>
 
+---
 
 ### Student 2: Core Networking
 **Focus:** Sockets, Event Loop, I/O Multiplexing (`poll`), Client State.
@@ -102,6 +121,7 @@
     *   Instead of writing 20 lines of C code to open a port, you want to write `Socket::listenOn(8080)`.
     *   This class handles the OS boilerplate: creating the socket, setting the "Reuse Address" option (so you can restart the server instantly), and binding to the port.
 *   **Definition of Done:** You can open a port on your machine and see it listening using `netstat` or `lsof`.
+*   **Verification Command:** `lsof -i :8080` or `netstat -tlnp | grep 8080`
 
 #### **Task C2: Client State Machine**
 *   **The Purpose:** A connection is not just "Open" or "Closed." It goes through phases. If you don't track these phases, you will try to read from a client that is waiting for a response, or write to a client that is uploading data.
@@ -131,7 +151,7 @@
     1.  **Wait:** Call `poll()` and sleep until the OS wakes you up.
     2.  **Dispatch:** Iterate through the results. Is it a new connection? Is it data coming in? Is it space to write out?
     3.  **Route:** Call the appropriate helper functions (C6/C7).
-    *   *Constraint:* You must handle **Listening Sockets** (new friends) and **Connection Sockets** (existing friends) in this same loop.
+    *   Constraint: You must handle **Listening Sockets** and **Connection Sockets** in this same loop.
 
 #### **Task C6: EventLoop - Client Read**
 *   **The Purpose:** The OS told you "There is data waiting." You need to move it from the OS kernel to your application memory.
@@ -140,6 +160,7 @@
     *   **Crucial:** Detect if the client closed the connection (read returns 0).
     *   **Integration:** Once data is read, you eventually hand it to Student 3's Parser.
 *   **Definition of Done:** You can `telnet` to the server, type keys, and see them appear in your program's memory/logs.
+*   **Verification Command:** `telnet localhost 8080` then type any text
 
 #### **Task C7: EventLoop - Client Write**
 *   **The Purpose:** Student 3 has generated a response (e.g., an HTML page), but you can't just dump 10MB instantly. The client might be on slow Wi-Fi.
@@ -162,10 +183,18 @@
     *   **Init:** Ask S1's Config "Which ports do I need?". Loop through them and create Listeners (C1). Add them to the EventLoop (C4).
     *   **Shutdown:** Catch the `SIGINT` signal. Break the infinite loop. Close all FDs. Free all memory.
 *   **Definition of Done:** You can start the server with a specific config, and when you kill it, Valgrind reports **0 Memory Leaks**.
+*   **Verification Command:** `valgrind --leak-check=full ./webserv config/default.conf`
+
+**Integration Points with Other Students:**
+- You depend on Student 1's `Config` class for port/host information
+- Student 3 depends on your `EventLoop` to call their HTTP parser
+- Your event loop is the **critical path** - any delays affect the entire project
 </details>
 
+---
+
 ### Student 3: HTTP Protocol
-**Focus:** Parsing Request Strings, Building Response Objects, MIME Types.
+**Focus:** Parsing Request Strings, Building Response Objects, MIME Types.  
 **Goal:** You interpret the raw bytes S2 reads. You take `"GET / HTTP/1.1"` and turn it into a C++ Object. You also generate the formatted text sent back to the browser.
 <details>
   <summary>Details</summary>
@@ -208,6 +237,7 @@
     2.  **URI:** What file are they asking for? (e.g., `/images/cat.png`).
     3.  **Version:** Is it `HTTP/1.1`? (Reject 1.0 if you want, or handle differently).
 *   **Definition of Done:** You can take a string `GET /index.html HTTP/1.1\r\n` and populate the fields in your `HttpRequest` object.
+*   **Verification Command:** `echo -e "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n" | nc localhost 8080`
 
 #### **Task D4: HttpParser - Headers**
 *   **The Purpose:** Headers tell the server *how* to process the request. For example, `Content-Length` tells you how much data to read next. `Host` tells you which website they want (Virtual Hosting).
@@ -234,7 +264,40 @@
     3.  Read a `\r\n`.
     4.  Repeat until the Hex size is `0`.
 *   **Definition of Done:** You can send a request using `Transfer-Encoding: chunked` (via curl or a custom script) and your parser reconstructs the full original body correctly.
+*   **Verification Command:** `curl -X POST -H "Transfer-Encoding: chunked" -d "test data" http://localhost:8080/`
+
+**Integration Points with Other Students:**
+- You depend on Student 2's `EventLoop` to receive raw bytes
+- Student 1's `LocationConfig` tells you which methods are allowed
+- Your parser must handle incremental data (network may send partial requests)
 </details>
+
+---
+
+## 2. Quick Reference: Key Evaluation Requirements
+
+> ⚠️ **CRITICAL:** Violating any of these requirements results in **automatic grade 0**.
+
+### Absolute Requirements
+
+| Rule | Description | Verification |
+|------|-------------|--------------|
+| NO | Multiple `poll()`/`select()`/`epoll()` calls | `grep -rE "poll\(|select\(|epoll_" src/ \| wc -l` should return 1 |
+| NO | `errno` check after `read`/`recv`/`write`/`send` | `grep -A2 "recv\|send\|read\|write" src/ \| grep errno` should return nothing |
+| NO | More than ONE read/write per client per poll iteration | Code review: verify single recv()/send() per handleClient function |
+| NO | `fork()` for anything except CGI | `grep -r "fork()" src/ \| grep -v cgi` should return nothing |
+| YES | Check **BOTH** `-1` AND `0` returns from I/O | Verify `if (bytesRead == 0)` and `if (bytesRead < 0)` in I/O handlers |
+| YES | All sockets non-blocking | Verify `fcntl(fd, F_SETFL, O_NONBLOCK)` called for all sockets |
+| YES | `Host` header required for HTTP/1.1 | `curl -H "" http://localhost:8080/` returns 400 Bad Request |
+
+### Success Criteria for Phases 0-3
+
+| Phase | Success Criteria |
+|-------|-----------------|
+| Phase 0 | Makefile works, all research documented, interfaces agreed upon |
+| Phase 1 | Config file parses correctly, validation catches errors |
+| Phase 2 | Server accepts connections, handles multiple clients via poll() |
+| Phase 3 | HTTP requests parse correctly, including chunked encoding |
 
 ---
 
@@ -318,7 +381,22 @@
 
 ---
 
-## 4. The Plan:
+## 4. The Plan
+
+### Understanding the Diagram
+
+**Legend:**
+- **Red nodes** = Critical Path (zero slack - any delay extends the project)
+- **Green nodes** = Student 1 tasks (Configuration)
+- **Blue nodes** = Student 3 tasks (HTTP Protocol)
+- **Orange nodes** = Shared tasks (Student 2 + Student 3 CGI integration)
+- **Purple nodes** = All team integration tasks
+
+**Duration & Float:**
+- **Duration** = Estimated working days to complete the task
+- **Float** = Buffer days available before the task becomes critical
+
+### Dependency Diagram
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#e1f5fe', 'primaryTextColor': '#01579b', 'primaryBorderColor': '#0288d1', 'lineColor': '#424242', 'secondaryColor': '#fff3e0', 'tertiaryColor': '#f3e5f5'}}}%%
@@ -555,3 +633,47 @@ flowchart TD
     style H3 fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
     style H4 fill:#bbdefb,stroke:#1976d2,stroke-width:2px
 ```
+
+---
+
+## 5. Milestone Checkpoints
+
+### Phase 0-3 Milestones
+
+| Day | Milestone | Owner | Deliverables | Verification |
+|-----|-----------|-------|--------------|--------------|
+| **4** | Foundation Complete | All | Makefile compiles, interfaces defined | `make re` with no warnings |
+| **7** | Research Complete | All | Documentation for HTTP/NGINX/poll() | Team review meeting |
+| **10** | Socket Utilities Ready | Student 2 | Can bind to port, accept connections | `netstat -tlnp` shows listening port |
+| **13** | Config Classes Done | Student 1 | LocationConfig, ServerConfig complete | Unit tests pass |
+| **16** | Config Parser Done | Student 1 | Can parse sample.conf | Test with valid/invalid configs |
+| **19** | EventLoop Working | Student 2 | poll() loop handles I/O events | telnet can connect and receive data |
+| **23** | HTTP Parser Complete | Student 3 | Parses GET/POST with chunked encoding | curl requests parsed correctly |
+| **27** | Core Server Operational | Student 2 | Server accepts, reads, writes | Multiple concurrent telnet sessions |
+
+### Integration Checkpoints
+
+| Checkpoint | When | What to Test |
+|------------|------|--------------|
+| Config → Server | Day 19 | Server reads ports from Config |
+| Parser → EventLoop | Day 23 | EventLoop passes data to Parser |
+| Full Integration | Day 27 | Complete request/response cycle |
+
+---
+
+## Appendix: Float Explanation
+
+**Float** (or slack) is the amount of time a task can be delayed without affecting the project end date.
+
+- **Zero Float (Critical Path):** Any delay in these tasks directly delays the project
+- **Positive Float:** Buffer time available - can be used if challenges arise
+
+**Prioritization Strategy:**
+1. Always prioritize zero-float tasks
+2. Use float from non-critical tasks to help critical path if needed
+3. Student 2's tasks are mostly zero-float - team should support them
+
+---
+
+*Document Version: 1.1*  
+*Last Updated: 16 January 2026*  
