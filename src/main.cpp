@@ -1,5 +1,13 @@
 #include <string>
 #include <iostream>
+#include "webserv.hpp"
+
+/* 
+handles command-line arguments,
+instantiates the Server object,
+triggers initialization with the configuration file,
+and starts the main execution loop.
+*/
 
 int main(int argc, char **argv) {
     std::string configFile;
