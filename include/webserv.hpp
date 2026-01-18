@@ -1,6 +1,8 @@
 #ifndef WEBSERV_HPP
 #define WEBSERV_HPP
 
+#include "Config.hpp"
+
 class   Server;
 class   Client;
 class   Config;
