@@ -12,11 +12,11 @@ and starts the main execution loop.
 
 // this is my world now , let's go and start working on it 
 
-//1 - programe take a confige file (.cfg)
+//1 - programe take a confige file (.conf)
 //2 - open it check it's valid to open and existe if not throw an excpetion
 //3 - proccess file , i need to throw an error sepicifique to that problem
 //4 - after parsing it , it will be stored in a data structure that the the others will use to proccess things 
-// i think this is my 
+// i think this is my main goal for now
 
 
 int main(int argc, char **argv) {
@@ -34,9 +34,7 @@ int main(int argc, char **argv) {
     try {
         Config config;
         config.load(configFile);      // open + parse + validate
-
-        //ServerConfig server(config);     // here Config structure will be read
-        // server.run();
+        config.matchServer(8080, "localhost");
     }
     catch (const ConfigException& e) {
         std::cerr << "Config error: " << e.what() << std::endl;
@@ -49,3 +47,23 @@ int main(int argc, char **argv) {
 
     return 0;
 }
+
+
+//?
+// Here is what I did so far:
+// - Created Config class with load, parse, and validate methods
+// - Created ServerConfig and LocationConfig structures to hold server settings
+// - Implemented basic error handling with ConfigException
+// - Matched server based on port and host
+
+// You will use my matchServer method in main to get the right server config
+
+// So you will have a request that will have a host and a port
+// And you will use matchServer to get the right server config for that request
+// This is what I think at least
+
+// Default host is "localhost"
+// Default port is 8080
+// "listen 8080;" means that host is "localhost" by default, like in Nginx
+// So if you have a request with host "localhost" and port 8080
+// You will get the server config that has "listen 8080;" in the config file

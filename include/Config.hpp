@@ -10,9 +10,9 @@ class Config
 {
 public:
   Config();
-
+  Config(const std::string& path);
+  
   void load(const std::string &path);
-
   const ServerConfig &matchServer(int port, const std::string &host) const;
   class ConfigException : public std::runtime_error
   {
