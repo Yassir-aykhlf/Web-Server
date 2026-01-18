@@ -1,16 +1,9 @@
 #ifndef SERVERCONFIG_HPP
 #define SERVERCONFIG_HPP
 
+#include "LocationConfig.hpp"
 #include <vector>
 #include <map>
-#include <string>
-
-struct LocationConfig
-{
-  std::string path;     // e.g. "/images"
-  std::string root;     // filesystem root
-  std::string cgi_pass; // empty if not CGI
-};
 
 class ServerConfig
 {
