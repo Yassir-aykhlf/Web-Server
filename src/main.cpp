@@ -1,18 +1,8 @@
-#include <string>
-#include <iostream>
-#include "webserv.hpp"
+#include "Server.hpp"
+#include "Logger.hpp"
 
-/* 
-handles command-line arguments,
-instantiates the Server object,
-triggers initialization with the configuration file,
-and starts the main execution loop.
-*/
-
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
     std::string configFile;
-    Server      server; // TODO: create server class
-
     if (argc > 2) {
         std::cerr << "Usage: " << argv[0] << " [config_file]" << std::endl;
         return 1;
@@ -22,12 +12,13 @@ int main(int argc, char **argv) {
     } else {
         configFile = "config/default.conf";
     }
-
+    Logger::info("Webserv " SERVER_NAME " starting...");
+    Server server;
     if (!server.init(configFile)) {
-        // log error
+        Logger::error("Failed to initialize server");
         return 1;
     }
-    server.run();
-    // log server shut down
+    server.run(); 
+    Logger::info("Webserv shut down successfully");
     return 0;
 }
