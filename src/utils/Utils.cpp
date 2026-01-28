@@ -108,3 +108,13 @@ std::string trim(const std::string& str) {
     size_t end = str.find_last_not_of(" \t\r\n");
     return str.substr(start, end - start + 1);
 }
+
+void non_blocking(int fd) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    int result = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    if (result == -1) {
+        perror("Error setting non-blocking mode");
+        exit(EXIT_FAILURE);
+    }
+}
+

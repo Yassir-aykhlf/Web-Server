@@ -1,8 +1,13 @@
 // #ifndef SERVER_HPP
 // #define SERVER_HPP
 
+
 // #include "webserv.hpp"
 // #include "Config.hpp"
+
+#include "webserv.hpp"
+#include "Config.hpp"
+#include "EventLoop.hpp"
 
 // class Server {
 // public:
@@ -15,6 +20,7 @@
 
 //     static Server* _instance;
 //     static void handleSignal(int sig);
+
 
 // private:
 //     Config _config;
