@@ -27,7 +27,6 @@
 #include <set>
 #include <new>
 
-#define ONE_MB 1048576
 
 class   Server;
 class   Client;
@@ -41,6 +40,7 @@ class   HttpParser;
 class   RequestHandler;
 class   CgiHandler;
 
+#define ONE_MB 1048576
 #define BUFFER_SIZE 65536
 #define MAX_CLIENTS 1024
 #define DEFAULT_PORT 8080
