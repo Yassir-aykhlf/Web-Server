@@ -1,30 +1,35 @@
 #ifndef CONFIG_HPP
 #define CONFIG_HPP
 
-#include "ServerConfig.hpp"
+#include <iostream>
 #include <sstream>
 #include <fstream>
 #include <algorithm>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+#include "ConfigNode.hpp"
+#include "ConfigParser.hpp"
+#include "ConfigExceptions.hpp"
+#include "ConfigValidator.hpp"
 
 class Config
 {
-public:
-  Config();
-  Config(const std::string &path);
-
-  void load(const std::string &path);
-  const ServerConfig &matchServer(int port, const std::string &host) const;
-  class ConfigException : public std::runtime_error
-  {
-  public:
-    ConfigException(const std::string &msg) : std::runtime_error(msg) {}
-  };
-
 private:
-  std::vector<ServerConfig> servers;
+  ConfigNode ast_;
+  std::string filename_;
 
-  void parse(std::istream &in);
-  void validate() const;
+public:
+  Config(const std::string filename);
+  void load();
+
+  // getters
+  const ConfigNode &getAST() const { return ast_; };
+
+  // Debugging
+  void printAST(const ConfigNode &node, int indent) const;
+  void printAST(void) const;
 };
 
 #endif

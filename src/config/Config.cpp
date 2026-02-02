@@ -1,51 +1,65 @@
 #include "Config.hpp"
 
-Config::Config() : servers()
-{
-}
+Config::Config(std::string filename) : filename_(filename) {};
 
-Config::Config(const std::string &path)
+// Debugging
+void Config::printAST(const ConfigNode &node, int indent) const
 {
-    load(path);
-}
+        std::string indentation(indent * 2, ' ');
 
-void Config::load(const std::string &path)
-{
-    std::ifstream file(path.c_str());
-    if (!file.is_open())
-        throw ConfigException("Cannot open config file: " + path);
-    parse(file);
-    validate();
-    file.close();
-}
+        std::cout << indentation << "Directive: " << node.getName() << std::endl;
 
-void Config::parse(std::istream &in)
-{
-    (void)in;
-    // Parsing logic to populate 'servers' vector
-    // This is a placeholder; actual parsing code would go here
-    return;
-}
-
-void Config::validate() const
-{
-    // Validation logic for the loaded configuration
-    // This is a placeholder; actual validation code would go here
-}
-
-const ServerConfig &Config::matchServer(int port, const std::string &host) const
-{
-    for (std::vector<ServerConfig>::const_iterator it = servers.begin(); it != servers.end(); ++it)
-    {
-        if (it->port == port)
+        // Print parameters
+        if (!node.getArguments().empty())
         {
-            if (std::find(it->server_names.begin(), it->server_names.end(), host) != it->server_names.end())
-            {
-                return *it;
-            }
+                std::cout << indentation << "Parameters: ";
+                for (size_t i = 0; i < node.getArguments().size(); ++i)
+                {
+                        std::cout << node.getArguments()[i];
+                        if (i < node.getArguments().size() - 1)
+                        {
+                                std::cout << ", ";
+                        }
+                }
+                std::cout << std::endl;
         }
-    }
-    std::ostringstream oss;
-    oss << "No matching server for port " << port << " and host " << host;
-    throw ConfigException(oss.str());
+
+        // Print children recursively
+
+        if (!node.getChildren().empty())
+        {
+                std::cout << indentation << "Children {" << std::endl;
+                for (size_t i = 0; i < node.getChildren().size(); ++i)
+                {
+                        std::vector<ConfigNode> children = node.getChildren();
+                        printAST(children[i], indent + 1);
+                }
+                std::cout << indentation << "}" << std::endl;
+        }
+}
+
+// Overload for easy usage
+void Config::printAST(void) const
+{
+        printAST(ast_, 0);
+}
+
+void Config::load()
+{
+        try
+        {
+                ConfigParser parser;
+                ast_ = parser.parse(filename_);
+
+                ConfigValidator validator;
+                validator.validate(ast_);
+        }
+        catch (const ParseException &e)
+        {
+                throw ConfigException(std::string("Parsing error: ") + e.what());
+        }
+        catch (const ConfigException &e)
+        {
+                throw;
+        }
 }
