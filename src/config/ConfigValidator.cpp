@@ -11,46 +11,50 @@ void ConfigValidator::initializeRules()
   std::vector<std::string> empty;
   std::vector<std::string> httpParents;
   httpParents.push_back("http");
-
   std::vector<std::string> serverParents;
   serverParents.push_back("server");
-
   std::vector<std::string> serverLocationParents;
   serverLocationParents.push_back("server");
   serverLocationParents.push_back("location");
-
   std::vector<std::string> locationParents;
   locationParents.push_back("location");
 
-  // Block directives (can contain other directives)
-  rules_["http"] = DirectiveRule(0, 0, true, httpParents, &ConfigValidator::noValidation);
-  rules_["server"] = DirectiveRule(0, 0, true, httpParents, &ConfigValidator::noValidation);
-  rules_["location"] = DirectiveRule(1, 1, true, serverParents, &ConfigValidator::noValidation);
+  // ==========================================
+  // BLOCK DIRECTIVES
+  // ==========================================
+  rules_["http"] = DirectiveRule(0, 0, true, httpParents, NULL);
+  rules_["server"] = DirectiveRule(0, 0, true, httpParents, NULL);
+  rules_["location"] = DirectiveRule(1, 1, true, serverParents, &ConfigValidator::validateLocation);
 
-  // Server context directives
+  // ==========================================
+  // SERVER CONTEXT DIRECTIVES
+  // ==========================================
   rules_["listen"] = DirectiveRule(1, 1, false, serverParents, &ConfigValidator::validateListen);
   rules_["server_name"] = DirectiveRule(1, MAX_PARAMS_SIZE, false, serverParents, &ConfigValidator::validateServerName);
-  rules_["root"] = DirectiveRule(1, 1, false, serverLocationParents, &ConfigValidator::validatePath);
-  rules_["index"] = DirectiveRule(1, MAX_PARAMS_SIZE, false, serverLocationParents, &ConfigValidator::validateIndex);
   rules_["error_page"] = DirectiveRule(2, MAX_PARAMS_SIZE, false, serverLocationParents, &ConfigValidator::validateErrorPage);
   rules_["client_max_body_size"] = DirectiveRule(1, 1, false, serverLocationParents, &ConfigValidator::validateSize);
+  rules_["client_body_timeout"] = DirectiveRule(1, 1, false, serverLocationParents, &ConfigValidator::validateTimeout);
+
+  // ==========================================
+  // LOCATION CONTEXT DIRECTIVES
+  // ==========================================
+  rules_["root"] = DirectiveRule(1, 1, false, serverLocationParents, &ConfigValidator::validatePath);
+  rules_["index"] = DirectiveRule(1, MAX_PARAMS_SIZE, false, serverLocationParents, &ConfigValidator::validateIndex);
   rules_["autoindex"] = DirectiveRule(1, 1, false, serverLocationParents, &ConfigValidator::validateBoolean);
-
-  // Location context directives
   rules_["method"] = DirectiveRule(1, MAX_PARAMS_SIZE, false, locationParents, &ConfigValidator::validateMethod);
-  rules_["return"] = DirectiveRule(1, 2, false, serverLocationParents, &ConfigValidator::validateReturn);
-  rules_["alias"] = DirectiveRule(1, 1, false, locationParents, &ConfigValidator::validateAlias);
+  rules_["redirect"] = DirectiveRule(1, 2, false, serverLocationParents, &ConfigValidator::validateRedirect);
 
-  // CGI directives
+  // ==========================================
+  // CGI DIRECTIVES
+  // ==========================================
   rules_["cgi_ext"] = DirectiveRule(1, MAX_PARAMS_SIZE, false, locationParents, &ConfigValidator::validateCgiExt);
   rules_["cgi_path"] = DirectiveRule(1, 1, false, locationParents, &ConfigValidator::validateCgiPath);
+  rules_["cgi_timeout"] = DirectiveRule(1, 1, false, locationParents, &ConfigValidator::validateTimeout);
 
-  // Upload directives
+  // ==========================================
+  // UPLOAD DIRECTIVES
+  // ==========================================
   rules_["upload_store"] = DirectiveRule(1, 1, false, locationParents, &ConfigValidator::validateUploadStore);
-
-  // Timeout directives
-  rules_["client_body_timeout"] = DirectiveRule(1, 1, false, serverLocationParents, &ConfigValidator::validateTimeout);
-  rules_["send_timeout"] = DirectiveRule(1, 1, false, serverLocationParents, &ConfigValidator::validateTimeout);
 }
 
 bool ConfigValidator::isAllowedInContext(const std::string &directive, const std::string &context)
@@ -82,11 +86,14 @@ void ConfigValidator::validateNode(const ConfigNode &node, const std::string &co
   }
 
   size_t paramCount = node.getArguments().size();
-
   if (paramCount < rule.minParams || paramCount > rule.maxParams)
-    throw ConfigException("Directive '" + node.getName() + "unexpected number of parameters");
+    throw ConfigException("Directive '" + node.getName() + "' unexpected number of parameters");
 
-  // rule.paramValidator(node.getArguments());
+  if (rule.paramValidator != NULL)
+  {
+    if (!rule.paramValidator(node.getArguments()))
+      throw ConfigException("Invalid parameters for directive '" + node.getName() + "'");
+  }
 
   if (!rule.allowsChildren && !node.getChildren().empty())
     throw ConfigException("Directive '" + node.getName() + "' does not allow child directives");
@@ -100,21 +107,236 @@ void ConfigValidator::validate(const ConfigNode &root)
   validateNode(root, "http");
 }
 
-// 1. Port validator (1-65535)
+// ==========================================
+// VALIDATOR IMPLEMENTATIONS
+// ==========================================
+
 bool ConfigValidator::validateListen(const std::vector<std::string> &params)
 {
   if (params.size() != 1)
     return false;
 
-  std::stringstream ss(params[0]);
-  int port;
-  if (!(ss >> port) || !ss.eof())
+  std::string listen = params[0];
+
+  // Case 1: Empty string
+  if (listen.empty())
     return false;
 
-  return port >= 1 && port <= 65535;
+  // Case 2: IPv6 format [ipv6]:port or [ipv6]
+  if (listen[0] == '[')
+  {
+    size_t closeBracket = listen.find(']');
+    if (closeBracket == std::string::npos)
+      return false;
+
+    std::string ipv6 = listen.substr(1, closeBracket - 1);
+
+    // Just IPv6: [::1]
+    if (closeBracket == listen.length() - 1)
+    {
+      return isValidIPv6(ipv6);
+    }
+
+    // IPv6 with port: [::1]:8080
+    if (closeBracket + 1 < listen.length())
+    {
+      if (listen[closeBracket + 1] != ':')
+        return false;
+      std::string port = listen.substr(closeBracket + 2);
+      return isValidIPv6(ipv6) && isValidPort(port);
+    }
+
+    return false;
+  }
+
+  // Case 3: Check if it contains ':'
+  size_t colonPos = listen.find(':');
+
+  // Case 3a: No colon - could be just port or just IPv4
+  if (colonPos == std::string::npos)
+  {
+    // Check if it's all digits (port only)
+    bool allDigits = true;
+    for (size_t i = 0; i < listen.length(); i++)
+    {
+      if (!std::isdigit(listen[i]))
+      {
+        allDigits = false;
+        break;
+      }
+    }
+
+    if (allDigits)
+    {
+      return isValidPort(listen);
+    }
+
+    // Check if it's IPv4 (contains dots)
+    if (listen.find('.') != std::string::npos)
+    {
+      return isValidIPv4(listen);
+    }
+
+    return false;
+  }
+
+  // Case 3b: Contains colon - could be IPv4:port
+  std::string beforeColon = listen.substr(0, colonPos);
+  std::string afterColon = listen.substr(colonPos + 1);
+
+  // Check if beforeColon is IPv4 and afterColon is port
+  if (beforeColon.find('.') != std::string::npos)
+  {
+    return isValidIPv4(beforeColon) && isValidPort(afterColon);
+  }
+
+  return false;
 }
 
-// 2. Path validator (must be absolute path or exist)
+bool ConfigValidator::isValidPort(const std::string &port)
+{
+  if (port.empty())
+    return false;
+
+  // Check all characters are digits
+  for (size_t i = 0; i < port.length(); i++)
+  {
+    if (!std::isdigit(port[i]))
+      return false;
+  }
+
+  // Convert to integer and check range
+  std::stringstream ss(port);
+  int portNum;
+  if (!(ss >> portNum) || !ss.eof())
+    return false;
+
+  return portNum >= 1 && portNum <= 65535;
+}
+
+bool ConfigValidator::isValidIPv4(const std::string &ip)
+{
+  if (ip.empty())
+    return false;
+
+  std::vector<std::string> octets;
+  std::stringstream ss(ip);
+  std::string octet;
+
+  // Split by '.'
+  while (std::getline(ss, octet, '.'))
+  {
+    octets.push_back(octet);
+  }
+
+  // Must have exactly 4 octets
+  if (octets.size() != 4)
+    return false;
+
+  // Validate each octet
+  for (size_t i = 0; i < octets.size(); i++)
+  {
+    if (octets[i].empty())
+      return false;
+
+    // Check all characters are digits
+    for (size_t j = 0; j < octets[i].length(); j++)
+    {
+      if (!std::isdigit(octets[i][j]))
+        return false;
+    }
+
+    // Convert to integer and check range
+    std::stringstream octetSS(octets[i]);
+    int num;
+    if (!(octetSS >> num) || !octetSS.eof())
+      return false;
+
+    if (num < 0 || num > 255)
+      return false;
+  }
+
+  return true;
+}
+
+bool ConfigValidator::isValidIPv6(const std::string &ip)
+{
+  if (ip.empty())
+    return false;
+
+  // Special cases
+  if (ip == "::")
+    return true; // All zeros
+  if (ip == "::1")
+    return true; // Loopback
+
+  // Check for invalid characters
+  for (size_t i = 0; i < ip.length(); i++)
+  {
+    char c = ip[i];
+    if (c != ':' && !std::isxdigit(c))
+      return false;
+  }
+
+  // Count consecutive colons (::)
+  size_t doubleColonPos = ip.find("::");
+  bool hasDoubleColon = (doubleColonPos != std::string::npos);
+
+  // Check for multiple "::"
+  if (hasDoubleColon)
+  {
+    size_t secondDoubleColon = ip.find("::", doubleColonPos + 2);
+    if (secondDoubleColon != std::string::npos)
+      return false; // Multiple "::" not allowed
+  }
+
+  // Split by ':'
+  std::vector<std::string> groups;
+  std::stringstream ss(ip);
+  std::string group;
+
+  while (std::getline(ss, group, ':'))
+  {
+    groups.push_back(group);
+  }
+
+  // Count non-empty groups
+  size_t nonEmptyGroups = 0;
+  for (size_t i = 0; i < groups.size(); i++)
+  {
+    if (!groups[i].empty())
+    {
+      nonEmptyGroups++;
+
+      // Each group max 4 hex digits
+      if (groups[i].length() > 4)
+        return false;
+
+      // Check all are hex digits
+      for (size_t j = 0; j < groups[i].length(); j++)
+      {
+        if (!std::isxdigit(groups[i][j]))
+          return false;
+      }
+    }
+  }
+
+  // IPv6 has 8 groups
+  // With "::" compression, can have fewer non-empty groups
+  if (hasDoubleColon)
+  {
+    if (nonEmptyGroups > 7)
+      return false;
+  }
+  else
+  {
+    if (nonEmptyGroups != 8)
+      return false;
+  }
+
+  return true;
+}
+
 bool ConfigValidator::validatePath(const std::vector<std::string> &params)
 {
   if (params.size() != 1)
@@ -124,14 +346,9 @@ bool ConfigValidator::validatePath(const std::vector<std::string> &params)
   if (path.empty() || path[0] != '/')
     return false;
 
-  // Optional: Check if path exists
-  // struct stat info;
-  // return stat(path.c_str(), &info) == 0;
-
   return true;
 }
 
-// 3. HTTP Method validator (GET, POST, DELETE)
 bool ConfigValidator::validateMethod(const std::vector<std::string> &params)
 {
   if (params.empty())
@@ -146,7 +363,6 @@ bool ConfigValidator::validateMethod(const std::vector<std::string> &params)
   return true;
 }
 
-// 4. Boolean validator (on/off, true/false, yes/no)
 bool ConfigValidator::validateBoolean(const std::vector<std::string> &params)
 {
   if (params.size() != 1)
@@ -158,7 +374,6 @@ bool ConfigValidator::validateBoolean(const std::vector<std::string> &params)
          value == "yes" || value == "no";
 }
 
-// 5. Size validator (e.g., 1M, 500K, 1G)
 bool ConfigValidator::validateSize(const std::vector<std::string> &params)
 {
   if (params.size() != 1)
@@ -185,7 +400,6 @@ bool ConfigValidator::validateSize(const std::vector<std::string> &params)
          last == 'G' || last == 'g';
 }
 
-// 6. Server name validator (domain names)
 bool ConfigValidator::validateServerName(const std::vector<std::string> &params)
 {
   if (params.empty())
@@ -208,7 +422,6 @@ bool ConfigValidator::validateServerName(const std::vector<std::string> &params)
   return true;
 }
 
-// 7. Index files validator
 bool ConfigValidator::validateIndex(const std::vector<std::string> &params)
 {
   if (params.empty())
@@ -222,7 +435,6 @@ bool ConfigValidator::validateIndex(const std::vector<std::string> &params)
   return true;
 }
 
-// 8. Error page validator (error_code path, e.g., "404 /404.html")
 bool ConfigValidator::validateErrorPage(const std::vector<std::string> &params)
 {
   if (params.size() < 2)
@@ -245,8 +457,7 @@ bool ConfigValidator::validateErrorPage(const std::vector<std::string> &params)
   return !path.empty() && path[0] == '/';
 }
 
-// 9. Return/Redirect validator (code [url])
-bool ConfigValidator::validateReturn(const std::vector<std::string> &params)
+bool ConfigValidator::validateRedirect(const std::vector<std::string> &params)
 {
   if (params.size() < 1 || params.size() > 2)
     return false;
@@ -271,7 +482,6 @@ bool ConfigValidator::validateReturn(const std::vector<std::string> &params)
   return true;
 }
 
-// 10. CGI extension validator (.py, .php, .pl)
 bool ConfigValidator::validateCgiExt(const std::vector<std::string> &params)
 {
   if (params.empty())
@@ -286,7 +496,6 @@ bool ConfigValidator::validateCgiExt(const std::vector<std::string> &params)
   return true;
 }
 
-// 11. CGI path validator
 bool ConfigValidator::validateCgiPath(const std::vector<std::string> &params)
 {
   if (params.size() != 1)
@@ -296,19 +505,16 @@ bool ConfigValidator::validateCgiPath(const std::vector<std::string> &params)
   return !path.empty() && path[0] == '/';
 }
 
-// 12. Upload store validator
 bool ConfigValidator::validateUploadStore(const std::vector<std::string> &params)
 {
   return validatePath(params);
 }
 
-// 13. Alias validator
 bool ConfigValidator::validateAlias(const std::vector<std::string> &params)
 {
   return validatePath(params);
 }
 
-// 14. Timeout validator (in seconds)
 bool ConfigValidator::validateTimeout(const std::vector<std::string> &params)
 {
   if (params.size() != 1)
@@ -322,9 +528,53 @@ bool ConfigValidator::validateTimeout(const std::vector<std::string> &params)
   return timeout > 0 && timeout <= 3600; // Max 1 hour
 }
 
-// 15. No validation (always valid)
 bool ConfigValidator::noValidation(const std::vector<std::string> &params)
 {
   (void)params;
+  return true;
+}
+
+bool ConfigValidator::validateLocation(const std::vector<std::string> &params)
+{
+  // Location must have exactly 1 parameter (the path/pattern)
+  if (params.size() != 1)
+    return false;
+
+  return isValidLocationPath(params[0]);
+}
+
+bool ConfigValidator::isValidLocationPath(const std::string &path)
+{
+  if (path.empty())
+    return false;
+
+  // Location path must start with '/'
+  if (path[0] != '/')
+    return false;
+
+  // Check for invalid characters
+  // Locations can contain: alphanumeric, /, -, _, ., ~, *, $
+  for (size_t i = 0; i < path.length(); i++)
+  {
+    char c = path[i];
+    if (!std::isalnum(c) &&
+        c != '/' && c != '-' && c != '_' &&
+        c != '.' && c != '~' && c != '*' && c != '$')
+    {
+      return false;
+    }
+  }
+
+  // Don't allow consecutive slashes (except at start)
+  for (size_t i = 1; i < path.length() - 1; i++)
+  {
+    if (path[i] == '/' && path[i + 1] == '/')
+      return false;
+  }
+
+  // Don't allow trailing slash for paths other than root
+  if (path.length() > 1 && path[path.length() - 1] == '/')
+    return false;
+
   return true;
 }

@@ -31,6 +31,7 @@ private:
     // Parameter validation functions
     static bool isValidIPv4(const std::string &ip);
     static bool isValidIPv6(const std::string &ip);
+    static bool isValidLocationPath(const std::string &path);
     static bool isValidPort(const std::string &port);
     static bool validateListen(const std::vector<std::string> &params);
     static bool validatePath(const std::vector<std::string> &params);
@@ -40,14 +41,14 @@ private:
     static bool validateServerName(const std::vector<std::string> &params);
     static bool validateIndex(const std::vector<std::string> &params);
     static bool validateErrorPage(const std::vector<std::string> &params);
-    static bool validateReturn(const std::vector<std::string> &params);
+    static bool validateRedirect(const std::vector<std::string> &params);
     static bool validateCgiExt(const std::vector<std::string> &params);
     static bool validateCgiPath(const std::vector<std::string> &params);
     static bool validateUploadStore(const std::vector<std::string> &params);
     static bool validateAlias(const std::vector<std::string> &params);
     static bool validateTimeout(const std::vector<std::string> &params);
     static bool noValidation(const std::vector<std::string> &params);
-
+    static bool validateLocation(const std::vector<std::string> &params);
     // Validation helpers
     void validateNode(const ConfigNode &node, const std::string &context);
     bool isAllowedInContext(const std::string &directive, const std::string &context);
