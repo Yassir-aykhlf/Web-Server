@@ -47,6 +47,7 @@ private:
     bool parseChunkSize();
     bool parseChunkData();
     void setError(int code, const std::string& message);
+    HttpMethod stringToMethod(const std::string& method);
 };
 
 #endif

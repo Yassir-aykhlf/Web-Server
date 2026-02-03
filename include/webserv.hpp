@@ -57,9 +57,18 @@ enum HttpMethod {
     METHOD_UNKNOWN
 };
 
+enum HttpStatus {
+    STATUS_OK = 200,
+    STATUS_BAD_REQUEST = 400,
+    STATUS_URI_TOO_LONG = 414,
+};
+
 std::string toLower(const std::string& str);
 std::string intToString(int value);
 int         stringToInt(const std::string& str);
 std::string toUpper(const std::string& str);
+std::vector<std::string> split(const std::string& str, char delimiter);
+std::string urlDecode(const std::string& str);
+std::string normalizePath(const std::string& path);
 
 #endif // WEBSERV_HPP

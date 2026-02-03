@@ -52,7 +52,41 @@ HttpParser::ParseResult HttpParser::parse(const char* data, size_t len) {
 }
 
 bool HttpParser::parseRequestLine() {
-    // TODO
+    size_t pos = _buffer.find("\r\n");
+    if (pos == std::string::npos) {
+        return false;
+    }
+    std::string line = _buffer.substr(0, pos);
+    _buffer.erase(0, pos + 2);
+    std::vector<std::string> parts = split(line, ' ');
+    if (parts.size() != 3) {
+        setError(STATUS_BAD_REQUEST, "Invalid request line");
+        return false;
+    }
+    _request.setMethodString(parts[0]);
+    _request.setMethod(stringToMethod(parts[0]));
+    std::string uri = parts[1];
+    if (uri.length() > 8192) {
+        setError(STATUS_URI_TOO_LONG, "URI too long");
+        return false;
+    }
+    _request.setUri(uri);
+    size_t queryPos = uri.find('?');
+    if (queryPos != std::string::npos) {
+        _request.setPath(urlDecode(uri.substr(0, queryPos)));
+        _request.setQueryString(uri.substr(queryPos + 1));
+    }
+    else {
+        _request.setPath(urlDecode(uri));
+    }
+    _request.setPath(normalizePath(_request.getPath()));
+    _request.setVersion(parts[2]);
+    if (parts[2] != "HTTP/1.0" && parts[2] != "HTTP/1.1") {
+        setError(STATUS_BAD_REQUEST, "Unsupported HTTP version");
+        return false;
+    }
+    _state = PARSE_HEADERS;
+    return true;
 }
 
 bool HttpParser::parseHeaders() {
@@ -80,6 +114,13 @@ void HttpParser::reset() {
     _chunkSize = 0;
     _chunkBytesRead = 0;
     _errorCode = 0;
+}
+
+HttpMethod HttpParser::stringToMethod(const std::string& method) {
+    if (method == "GET")   return METHOD_GET;
+    if (method == "POST")   return METHOD_POST;
+    if (method == "DELETE")   return METHOD_DELETE;
+    return METHOD_UNKNOWN;
 }
 
 void HttpParser::setError(int code, const std::string& message) {
