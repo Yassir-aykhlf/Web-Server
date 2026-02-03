@@ -32,6 +32,7 @@ public:
 };
 
 // TODO :
+// First : i need to understand what is happening in the reqeust/respons multiplexer ...
 
 // ============================================================
 //! STEP 1 — HttpConfig
