@@ -37,11 +37,10 @@ int main(int argc, char **argv) {
 }
 
 // TODO: learn about
-// a line end with # or newline or EOF in code
-// add comments in deauflt.conf to explain each directive , spicificaly cgi
 // add error handling for missing or invalid configuration directives
 // add default values for missing configuration options
 // define parsing logic in parse method to populate servers vector
 // define validation logic in validate method to ensure configuration integrity
-// integrate Config class with Server class to initialize server instances based on loaded configuration
-// test heavelly the configuration loading and matching logic
+// integrate Config class with Server class to initialize server instances based
+// on loaded configuration test heavelly the configuration loading and matching
+// logic

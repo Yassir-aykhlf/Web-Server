@@ -1,33 +1,49 @@
 #pragma once
 
-#include "ConfigNode.hpp"
 #include "ConfigExceptions.hpp"
-#include <string>
+#include "ConfigNode.hpp"
+#include <cstdlib>
 #include <cstring>
-#include <vector>
 #include <map>
 #include <sstream>
-#include <cstdlib>
+#include <string>
+#include <vector>
 
 #define MAX_PARAMS_SIZE 1000
 
 struct DirectiveRule
 {
-    size_t minParams;
-    size_t maxParams;
-    bool allowsChildren;
+    size_t                   minParams;
+    size_t                   maxParams;
+    bool                     allowsChildren;
     std::vector<std::string> allowedContexts;
     bool (*paramValidator)(const std::vector<std::string> &);
 
-    DirectiveRule() : minParams(0), maxParams(0), allowsChildren(false), paramValidator(NULL) {};
-    DirectiveRule(size_t minP, size_t maxP, bool allowsCh, const std::vector<std::string> &contexts,
-                  bool (*validator)(const std::vector<std::string> &))
-        : minParams(minP), maxParams(maxP), allowsChildren(allowsCh), allowedContexts(contexts), paramValidator(validator) {}
+    DirectiveRule()
+        : minParams(0),
+          maxParams(0),
+          allowsChildren(false),
+          paramValidator(NULL) {};
+
+    DirectiveRule(
+        size_t                          minP,
+        size_t                          maxP,
+        bool                            allowsCh,
+        const std::vector<std::string> &contexts,
+        bool (*validator)(const std::vector<std::string> &)
+    )
+        : minParams(minP),
+          maxParams(maxP),
+          allowsChildren(allowsCh),
+          allowedContexts(contexts),
+          paramValidator(validator)
+    {
+    }
 };
 
 class ConfigValidator
 {
-private:
+  private:
     std::map<std::string, DirectiveRule> rules_;
 
     // Parameter validation functions
@@ -45,8 +61,11 @@ private:
     static bool validateIndex(const std::vector<std::string> &params);
     static bool isValidErrorPagePath(const std::string &path);
     static bool validateErrorPage(const std::vector<std::string> &params);
-    static bool validateRedirect(const std::vector<std::string> &params);
+    static bool validateReturn(const std::vector<std::string> &params);
     static bool validateCgiExt(const std::vector<std::string> &params);
+    static bool isReturnUrl(const std::string &value);
+    static bool isValidReturnCode(const std::string &value);
+    static bool isRedirectCode(int code);
     static bool validateUploadStore(const std::vector<std::string> &params);
     static bool validateTimeout(const std::vector<std::string> &params);
     static bool noValidation(const std::vector<std::string> &params);
@@ -58,12 +77,14 @@ private:
 
     // Validation helpers
     void validateNode(const ConfigNode &node, const std::string &context);
-    bool isAllowedInContext(const std::string &directive, const std::string &context);
+    bool isAllowedInContext(
+        const std::string &directive, const std::string &context
+    );
 
     // Initialize rules
     void initializeRules();
 
-public:
+  public:
     ConfigValidator();
 
     // Main validation method
