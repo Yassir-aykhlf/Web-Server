@@ -3,9 +3,11 @@
 #include "ConfigNode.hpp"
 #include "ConfigExceptions.hpp"
 #include <string>
+#include <cstring>
 #include <vector>
 #include <map>
 #include <sstream>
+#include <cstdlib>
 
 #define MAX_PARAMS_SIZE 1000
 
@@ -29,6 +31,7 @@ private:
     std::map<std::string, DirectiveRule> rules_;
 
     // Parameter validation functions
+    static bool isValidHostname(const std::string &hostname);
     static bool isValidIPv4(const std::string &ip);
     static bool isValidIPv6(const std::string &ip);
     static bool isValidLocationPath(const std::string &path);
@@ -40,15 +43,19 @@ private:
     static bool validateSize(const std::vector<std::string> &params);
     static bool validateServerName(const std::vector<std::string> &params);
     static bool validateIndex(const std::vector<std::string> &params);
+    static bool isValidErrorPagePath(const std::string &path);
     static bool validateErrorPage(const std::vector<std::string> &params);
     static bool validateRedirect(const std::vector<std::string> &params);
     static bool validateCgiExt(const std::vector<std::string> &params);
-    static bool validateCgiPath(const std::vector<std::string> &params);
     static bool validateUploadStore(const std::vector<std::string> &params);
-    static bool validateAlias(const std::vector<std::string> &params);
     static bool validateTimeout(const std::vector<std::string> &params);
     static bool noValidation(const std::vector<std::string> &params);
     static bool validateLocation(const std::vector<std::string> &params);
+    static bool validateInternal(const std::vector<std::string> &params);
+    static bool isAbsolutePath(const std::string &path);
+    static bool isValidFilesystemPath(const std::string &path);
+    static bool validateCgiPath(const std::vector<std::string> &params);
+
     // Validation helpers
     void validateNode(const ConfigNode &node, const std::string &context);
     bool isAllowedInContext(const std::string &directive, const std::string &context);

@@ -3,38 +3,60 @@
 Config::Config(std::string filename) : filename_(filename) {};
 
 // Debugging
+// ─── ANSI Colors ──────────────────────────────────
+#define COLOR_RESET "\033[0m"
+#define COLOR_CYAN "\033[36m"   // Simple directives (listen, root, method...)
+#define COLOR_RED "\033[31m"    // Block directives (http, server, location)
+#define COLOR_GREEN "\033[32m"  // Values / parameters
+#define COLOR_GRAY "\033[90m"   // Braces { } and semicolons ;
+#define COLOR_YELLOW "\033[33m" // Location path (first arg of location)
+// ───────────────────────────────────────────────────
+
 void Config::printAST(const ConfigNode &node, int indent) const
 {
         std::string indentation(indent * 2, ' ');
 
-        std::cout << indentation << "Directive: " << node.getName() << std::endl;
+        bool isBlock = (node.getName() == "http" || node.getName() == "server" || node.getName() == "location");
 
-        // Print parameters
+        // Print the directive name
+        std::cout << indentation
+                  << (isBlock ? COLOR_RED : COLOR_CYAN)
+                  << node.getName() << COLOR_RESET;
+
+        // Print arguments on the same line
         if (!node.getArguments().empty())
         {
-                std::cout << indentation << "Parameters: ";
+                std::cout << " ";
                 for (size_t i = 0; i < node.getArguments().size(); ++i)
                 {
-                        std::cout << node.getArguments()[i];
+                        // Location path gets yellow, everything else green
+                        if (node.getName() == "location" && i == 0)
+                                std::cout << COLOR_YELLOW;
+                        else
+                                std::cout << COLOR_GREEN;
+
+                        std::cout << node.getArguments()[i] << COLOR_RESET;
+
                         if (i < node.getArguments().size() - 1)
-                        {
-                                std::cout << ", ";
-                        }
+                                std::cout << " ";
                 }
-                std::cout << std::endl;
         }
 
-        // Print children recursively
-
+        // Block directive → open brace and recurse
         if (!node.getChildren().empty())
         {
-                std::cout << indentation << "Children {" << std::endl;
-                for (size_t i = 0; i < node.getChildren().size(); ++i)
-                {
-                        std::vector<ConfigNode> children = node.getChildren();
+                std::cout << " " << COLOR_GRAY << "{" << COLOR_RESET << std::endl;
+
+                std::vector<ConfigNode> children = node.getChildren();
+                for (size_t i = 0; i < children.size(); ++i)
                         printAST(children[i], indent + 1);
-                }
-                std::cout << indentation << "}" << std::endl;
+
+                std::cout << indentation << COLOR_GRAY << "}" << COLOR_RESET << std::endl;
+        }
+        else
+        {
+                // Simple directive → semicolon
+                std::cout << COLOR_GRAY << ";" << COLOR_RESET << std::endl;
         }
 }
 
