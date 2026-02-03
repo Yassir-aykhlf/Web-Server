@@ -1,294 +1,220 @@
 #include "ConfigParser.hpp"
-#include "Logger.hpp"
 
-ConfigParser::ConfigParser() : _pos(0), _line(1) {}
+ConfigParser::ConfigParser() {}
 
-ConfigParser::~ConfigParser() {}
-
-bool ConfigParser::parse(const std::string& filename, std::vector<ServerConfig>& servers) {
-    std::ifstream file(filename.c_str());
-    if (!file.is_open()) {
-        setError("Cannot open configuration file: " + filename);
-        return false;
+ConfigParser::~ConfigParser()
+{
+    if (stream_.is_open())
+    {
+        stream_.close();
     }
-    std::ostringstream oss;
-    oss << file.rdbuf();
-    _content = oss.str();
-    file.close();
-    _pos = 0;
-    _line = 1;
-    while (_pos < _content.length()) {
+}
+
+void ConfigParser::openFile(const std::string &filename)
+{
+    filename_ = filename;
+    if (stream_.is_open())
+        stream_.close();
+    stream_.open(filename.c_str());
+
+    if (!stream_.is_open())
+        throw FileException("Cannot open file : " + filename);
+}
+
+// first creat all tokenaziton helpers
+
+char ConfigParser::peekChar()
+{
+    return stream_.peek();
+}
+
+char ConfigParser::getChar()
+{
+    return stream_.get();
+}
+
+void ConfigParser::skipWhitespace()
+{
+    while (stream_ && std::isspace(peekChar()))
+    {
+        getChar();
+    }
+}
+
+void ConfigParser::skipComments()
+{
+    while (stream_)
+    {
         skipWhitespace();
-        if (_pos >= _content.length())
+
+        if (peekChar() != '#')
             break;
-        
-        std::string token = readToken();
-        if (token.empty())
+        while (stream_ && getChar() != '\n')
+            ;
+    }
+}
+
+Token ConfigParser::readSingleCharToken()
+{
+    char ch = peekChar();
+    switch (ch)
+    {
+    case ';':
+        getChar();
+        return Token(SEMICOLON, ";");
+    case '{':
+        getChar();
+        return Token(LBRACE, "{");
+    case '}':
+        getChar();
+        return Token(RBRACE, "}");
+    default:
+        throw ParseException(std::string("Unexpected character '") + ch + "'" + filename_);
+    }
+}
+
+Token ConfigParser::readWordToken()
+{
+    std::string value;
+    while (stream_ && !std::isspace(peekChar()) &&
+           peekChar() != ';' && peekChar() != '{' &&
+           peekChar() != '}' && peekChar() != '#')
+    {
+        value += getChar();
+    }
+    return Token(WORD, value);
+}
+
+Token ConfigParser::readNextToken()
+{
+    skipComments();
+    if (stream_.eof())
+        return Token(EOS, "");
+    char ch = peekChar();
+    if (ch == ';' || ch == '{' || ch == '}')
+        return readSingleCharToken();
+    return readWordToken();
+}
+
+void ConfigParser::advance()
+{
+    currentToken_ = readNextToken();
+}
+
+bool ConfigParser::match(TokenType type) const
+{
+    return currentToken_.type == type;
+}
+
+// Unused function >
+// bool ConfigParser::matchWord(const std::string &word) const
+// {
+//     return currentToken_.type == WORD && currentToken_.value == word;
+// }
+// Token ConfigParser::expectWord(const std::string &word)
+// {
+//     if (!matchWord(word))
+//     {
+//         std::ostringstream oss;
+//         oss << "Expected '" << word << "' but got '" << currentToken_.value << "'";
+//         throw ParseException(oss.str() + filename_);
+//     }
+//     Token token = currentToken_;
+//     advance();
+//     return token;
+// }
+// Unused function ;
+
+Token ConfigParser::expect(TokenType type)
+{
+    if (currentToken_.type != type)
+    {
+        std::ostringstream oss;
+        oss << "Expected ";
+        switch (type)
+        {
+        case WORD:
+            oss << "word";
             break;
-        
-        if (token == "server") {
-            ServerConfig server;
-            if (!parseServerBlock(server))
-                return false;
-            servers.push_back(server);
-        } else {
-            setError("Expected 'server', got '" + token + "'");
-            return false;
-        }
-    }
-    if (servers.empty()) {
-        setError("No server blocks found in configuration");
-        return false;
-    }
-    return true;
-}
-
-const std::string& ConfigParser::getError() const {
-    return _error;
-}
-
-void ConfigParser::skipWhitespace() {
-    while (_pos < _content.length()) {
-        char c = _content[_pos];
-        if (c == ' ' || c == '\t' || c == '\r') {
-            _pos++;
-        } else if (c == '\n') {
-            _pos++;
-            _line++;
-        } else if (c == '#') {
-            skipComment();
-        } else {
+        case SEMICOLON:
+            oss << "';'";
+            break;
+        case LBRACE:
+            oss << "'{'";
+            break;
+        case RBRACE:
+            oss << "'}'";
+            break;
+        case EOS:
+            oss << "end of file";
             break;
         }
+        oss << " but got '" << currentToken_.value << "'";
+        throw ParseException(oss.str() + filename_);
+    }
+    Token token = currentToken_;
+    advance();
+    return token;
+}
+
+ConfigNode ConfigParser::parseDirective()
+{
+
+    Token nameToken = expect(WORD);
+    ConfigNode node(SIMPLE, nameToken.value);
+
+    // Collect arguments
+    while (!match(SEMICOLON) && !match(LBRACE))
+    {
+        if (match(EOS))
+            throw ParseException("Unexpected end of file in directive '" + nameToken.value + "'");
+
+        Token arg = expect(WORD);
+        node.addArgument(arg.value);
+    }
+
+    // Simple directive
+    if (match(SEMICOLON))
+    {
+        advance();
+        return node;
+    }
+
+    // Block directive
+    if (match(LBRACE))
+    {
+        advance();
+        node.setType(BLOCK);
+
+        parseContext(node);
+
+        expect(RBRACE);
+        return node;
+    }
+
+    throw ParseException("Expected ';' or '{'" + filename_);
+}
+
+void ConfigParser::parseContext(ConfigNode &parent)
+{
+    while (!match(EOS) && !match(RBRACE))
+    {
+        ConfigNode directive = parseDirective();
+        parent.addChild(directive);
     }
 }
 
-void ConfigParser::skipComment() {
-    while (_pos < _content.length() && _content[_pos] != '\n')
-        _pos++;
-}
+ConfigNode ConfigParser::parse(const std::string filename)
+{
 
-std::string ConfigParser::readToken() {
-    skipWhitespace();
-    if (_pos >= _content.length())
-        return "";
-    if (_content[_pos] == '"' || _content[_pos] == '\'')
-        return readQuotedString();
-    if (_content[_pos] == '{' || _content[_pos] == '}' || _content[_pos] == ';') {
-        return std::string(1, _content[_pos++]);
-    }
-    size_t start = _pos;
-    while (_pos < _content.length()) {
-        char c = _content[_pos];
-        if (c == ' ' || c == '\t' || c == '\r' || c == '\n' ||
-            c == '{' || c == '}' || c == ';' || c == '#')
-            break;
-        _pos++;
-    }
-    return _content.substr(start, _pos - start);
-}
+    openFile(filename);
 
-std::string ConfigParser::readQuotedString() {
-    char quote = _content[_pos++];
-    size_t start = _pos;
-    while (_pos < _content.length() && _content[_pos] != quote) {
-        if (_content[_pos] == '\n')
-            _line++;
-        _pos++;
-    }
-    std::string result = _content.substr(start, _pos - start);
-    if (_pos < _content.length())
-        _pos++;
-    return result;
-}
+    advance();
+    ConfigNode root = ConfigNode(ROOT, "http");
 
-bool ConfigParser::expect(const std::string& token) {
-    std::string got = readToken();
-    if (got != token) {
-        setError("Expected '" + token + "', got '" + got + "'");
-        return false;
-    }
-    return true;
-}
+    parseContext(root);
 
-bool ConfigParser::parseServerBlock(ServerConfig& server) {
-    if (!expect("{"))
-        return false;
-    while (true) {
-        skipWhitespace();
-        if (_pos >= _content.length()) {
-            setError("Unexpected end of file in server block");
-            return false;
-        }
-        std::string token = readToken();
-        if (token == "}")
-            break;
-        if (token == "listen") {
-            std::string value = readToken();
-            size_t colonPos = value.find(':');
-            if (colonPos != std::string::npos) {
-                server.setHost(value.substr(0, colonPos));
-                server.setPort(stringToInt(value.substr(colonPos + 1)));
-            } else {
-                server.setPort(stringToInt(value));
-            }
-            if (!expect(";"))
-                return false;
-        }
-        else if (token == "server_name") {
-            while (true) {
-                std::string name = readToken();
-                if (name == ";")
-                    break;
-                server.addServerName(name);
-            }
-        }
-        else if (token == "root") {
-            server.setRoot(readToken());
-            if (!expect(";"))
-                return false;
-        }
-        else if (token == "index") {
-            server.setIndex(readToken());
-            if (!expect(";"))
-                return false;
-        }
-        else if (token == "client_max_body_size") {
-            server.setClientMaxBodySize(parseSize(readToken()));
-            if (!expect(";"))
-                return false;
-        }
-        else if (token == "error_page") {
-            int code = stringToInt(readToken());
-            std::string path = readToken();
-            server.addErrorPage(code, path);
-            if (!expect(";"))
-                return false;
-        }
-        else if (token == "location") {
-            LocationConfig location;
-            location.setPath(readToken());
-            if (!parseLocationBlock(location))
-                return false;
-            server.addLocation(location);
-        }
-        else {
-            setError("Unknown directive in server block: " + token);
-            return false;
-        }
-    }
-    if (server.getLocations().empty()) {
-        LocationConfig defaultLocation;
-        defaultLocation.setPath("/");
-        server.addLocation(defaultLocation);
-    }
-    return true;
-}
+    stream_.close();
 
-bool ConfigParser::parseLocationBlock(LocationConfig& location) {
-    if (!expect("{"))
-        return false;
-    bool methodsSet = false;
-    while (true) {
-        skipWhitespace();
-        if (_pos >= _content.length()) {
-            setError("Unexpected end of file in location block");
-            return false;
-        }
-        std::string token = readToken();
-        if (token == "}")
-            break;
-        if (token == "root") {
-            location.setRoot(readToken());
-            if (!expect(";"))
-                return false;
-        }
-        else if (token == "alias") {
-            location.setAlias(readToken());
-            if (!expect(";"))
-                return false;
-        }
-        else if (token == "index") {
-            location.setIndex(readToken());
-            if (!expect(";"))
-                return false;
-        }
-        else if (token == "methods" || token == "allow_methods" || token == "limit_except") {
-            if (!methodsSet) {
-                std::string savedPath = location.getPath();
-                location = LocationConfig();
-                location.setPath(savedPath);
-                methodsSet = true;
-            }
-            while (true) {
-                std::string method = readToken();
-                if (method == ";")
-                    break;
-                location.addMethod(method);
-            }
-        }
-        else if (token == "autoindex") {
-            std::string value = readToken();
-            location.setAutoindex(value == "on" || value == "true" || value == "1");
-            if (!expect(";"))
-                return false;
-        }
-        else if (token == "upload_store" || token == "upload_path") {
-            location.setUploadStore(readToken());
-            if (!expect(";"))
-                return false;
-        }
-        else if (token == "return") {
-            int code = stringToInt(readToken());
-            std::string url = readToken();
-            location.setRedirect(code, url);
-            if (!expect(";"))
-                return false;
-        }
-        else if (token == "cgi_extension" || token == "cgi_pass") {
-            std::string ext = readToken();
-            std::string handler = readToken();
-            location.addCgiExtension(ext, handler);
-            if (!expect(";"))
-                return false;
-        }
-        else if (token == "cgi") {
-            std::string ext = readToken();
-            std::string handler = readToken();
-            location.addCgiExtension(ext, handler);
-            if (!expect(";"))
-                return false;
-        }
-        else {
-            setError("Unknown directive in location block: " + token);
-            return false;
-        }
-    }
-    return true;
-}
-
-size_t ConfigParser::parseSize(const std::string& str) {
-    size_t value = 0;
-    size_t i = 0;
-    while (i < str.length() && std::isdigit(str[i])) {
-        value = value * 10 + (str[i] - '0');
-        i++;
-    }
-    if (i < str.length()) {
-        char suffix = std::toupper(str[i]);
-        if (suffix == 'K')
-            value *= 1024;
-        else if (suffix == 'M')
-            value *= 1024 * 1024;
-        else if (suffix == 'G')
-            value *= 1024 * 1024 * 1024;
-    }
-    return value;
-}
-
-void ConfigParser::setError(const std::string& msg) {
-    std::ostringstream oss;
-    oss << "Line " << _line << ": " << msg;
-    _error = oss.str();
-    Logger::error(_error);
+    return root;
 }

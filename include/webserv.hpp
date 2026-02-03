@@ -1,6 +1,8 @@
 #ifndef WEBSERV_HPP
 #define WEBSERV_HPP
 
+#include "Config.hpp"
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/types.h>
@@ -30,9 +32,6 @@
 
 class   Server;
 class   Client;
-class   Config;
-class   ServerConfig;
-class   LocationConfig;
 class   EvenLoop;
 class   HttpRequest;
 class   HttpResponse;

@@ -1,108 +1,87 @@
 #include "Config.hpp"
-#include "ConfigParser.hpp"
-#include "Logger.hpp"
 
-Config::Config() {}
+Config::Config(std::string filename) : filename_(filename) {};
 
-Config::Config(const std::string& filename) {
-    load(filename);
-}
+// Debugging
+// ─── ANSI Colors ──────────────────────────────────
+#define COLOR_RESET "\033[0m"
+#define COLOR_CYAN "\033[36m"   // Simple directives (listen, root, method...)
+#define COLOR_RED "\033[31m"    // Block directives (http, server, location)
+#define COLOR_GREEN "\033[32m"  // Values / parameters
+#define COLOR_GRAY "\033[90m"   // Braces { } and semicolons ;
+#define COLOR_YELLOW "\033[33m" // Location path (first arg of location)
+// ───────────────────────────────────────────────────
 
-Config::Config(const Config& other) {
-    *this = other;
-}
+void Config::printAST(const ConfigNode &node, int indent) const
+{
+        std::string indentation(indent * 2, ' ');
 
-Config& Config::operator=(const Config& other) {
-    if (this != &other) {
-        _servers = other._servers;
-    }
-    return *this;
-}
+        bool isBlock = (node.getName() == "http" || node.getName() == "server" || node.getName() == "location");
 
-Config::~Config() {}
+        // Print the directive name
+        std::cout << indentation
+                  << (isBlock ? COLOR_RED : COLOR_CYAN)
+                  << node.getName() << COLOR_RESET;
 
-bool Config::load(const std::string& filename) {
-    ConfigParser parser;
-    if (!parser.parse(filename, _servers)) {
-        Logger::error("Failed to parse configuration: " + parser.getError());
-        return false;
-    }
-    if (!validate()) {
-        return false;
-    }
-    Logger::info("Configuration loaded: " + intToString(_servers.size()) + " server(s)");
-    return true;
-}
+        // Print arguments on the same line
+        if (!node.getArguments().empty())
+        {
+                std::cout << " ";
+                for (size_t i = 0; i < node.getArguments().size(); ++i)
+                {
+                        // Location path gets yellow, everything else green
+                        if (node.getName() == "location" && i == 0)
+                                std::cout << COLOR_YELLOW;
+                        else
+                                std::cout << COLOR_GREEN;
 
-bool Config::validate() const {
-    if (_servers.empty()) {
-        Logger::error("No servers configured");
-        return false;
-    }
-    
-    std::map<int, std::vector<std::string> > portNames;
-    
-    for (size_t i = 0; i < _servers.size(); ++i) {
-        int port = _servers[i].getPort();
-        
-        if (port < 1 || port > 65535) {
-            Logger::error("Invalid port number: " + intToString(port));
-            return false;
-        }
-        
-        const std::vector<std::string>& names = _servers[i].getServerNames();
-        if (names.empty()) {
-            if (portNames.find(port) != portNames.end()) {
-                std::vector<std::string>& existingNames = portNames[port];
-                for (size_t j = 0; j < existingNames.size(); ++j) {
-                    if (existingNames[j].empty()) {
-                        Logger::error("Duplicate default server on port " + intToString(port));
-                        return false;
-                    }
+                        std::cout << node.getArguments()[i] << COLOR_RESET;
+
+                        if (i < node.getArguments().size() - 1)
+                                std::cout << " ";
                 }
-            }
-            portNames[port].push_back("");
-        } else {
-            for (size_t j = 0; j < names.size(); ++j) {
-                if (portNames.find(port) != portNames.end()) {
-                    std::vector<std::string>& existingNames = portNames[port];
-                    for (size_t k = 0; k < existingNames.size(); ++k) {
-                        if (existingNames[k] == names[j]) {
-                            Logger::error("Duplicate server_name '" + names[j] + 
-                                        "' on port " + intToString(port));
-                            return false;
-                        }
-                    }
-                }
-                portNames[port].push_back(names[j]);
-            }
         }
-    }
-    
-    return true;
+
+        // Block directive → open brace and recurse
+        if (!node.getChildren().empty())
+        {
+                std::cout << " " << COLOR_GRAY << "{" << COLOR_RESET << std::endl;
+
+                std::vector<ConfigNode> children = node.getChildren();
+                for (size_t i = 0; i < children.size(); ++i)
+                        printAST(children[i], indent + 1);
+
+                std::cout << indentation << COLOR_GRAY << "}" << COLOR_RESET << std::endl;
+        }
+        else
+        {
+                // Simple directive → semicolon
+                std::cout << COLOR_GRAY << ";" << COLOR_RESET << std::endl;
+        }
 }
 
-const ServerConfig* Config::getServerByHostPort(const std::string& host, int port) const {
-    const ServerConfig* defaultServer = NULL;
-    
-    for (size_t i = 0; i < _servers.size(); ++i) {
-        if (_servers[i].getPort() == port) {
-            if (_servers[i].hasServerName(host)) {
-                return &_servers[i];
-            }
-            if (defaultServer == NULL) {
-                defaultServer = &_servers[i];
-            }
-        }
-    }
-    
-    return defaultServer;
+// Overload for easy usage
+void Config::printAST(void) const
+{
+        printAST(ast_, 0);
 }
 
-std::vector<int> Config::getUniquePorts() const {
-    std::set<int> portSet;
-    for (size_t i = 0; i < _servers.size(); ++i) {
-        portSet.insert(_servers[i].getPort());
-    }
-    return std::vector<int>(portSet.begin(), portSet.end());
+void Config::load()
+{
+        try
+        {
+                ConfigParser parser;
+                ast_ = parser.parse(filename_);
+
+                ConfigValidator validator;
+                validator.validate(ast_);
+        }
+        catch (const ParseException &e)
+        {
+                throw ConfigException(std::string("Parsing error: ") + e.what());
+        }
+        catch (const ConfigException &e)
+        {
+                throw;
+        }
 }

@@ -1,25 +1,35 @@
 #ifndef CONFIG_HPP
 #define CONFIG_HPP
 
-#include "webserv.hpp"
-#include "ServerConfig.hpp"
+#include <iostream>
+#include <sstream>
+#include <fstream>
+#include <algorithm>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
-class Config {
-public:
-    Config();
-    Config(const std::string& filename);
-    Config(const Config& other);
-    Config& operator=(const Config& other);
-    ~Config();
+#include "ConfigNode.hpp"
+#include "ConfigParser.hpp"
+#include "ConfigExceptions.hpp"
+#include "ConfigValidator.hpp"
 
-    const std::vector<ServerConfig>& getServers() const;
-    bool load(const std::string& filename);
-    bool validate() const;
-    const ServerConfig* getServerByHostPort(const std::string& host, int port) const;
-    std::vector<int>    getUniquePorts() const;
-
+class Config
+{
 private:
-    std::vector<ServerConfig> _servers;
+  ConfigNode ast_;
+  std::string filename_;
+
+public:
+  Config(const std::string filename);
+  void load();
+
+  // getters
+  const ConfigNode &getAST() const { return ast_; };
+
+  // Debugging
+  void printAST(const ConfigNode &node, int indent) const;
+  void printAST(void) const;
 };
 
 #endif

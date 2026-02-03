@@ -1,7 +1,7 @@
 NAME = webserv
 
 CXX = c++
-CXXFLAGS = -Wall -Wextra -Werror -std=c++98
+CXXFLAGS = -Wall -Wextra -Werror -std=c++98 -fsanitize=address
 
 SRCDIR = src
 INCDIR = include
@@ -10,8 +10,8 @@ OBJDIR = obj
 SRCS = $(SRCDIR)/main.cpp \
        $(SRCDIR)/config/Config.cpp \
        $(SRCDIR)/config/ConfigParser.cpp \
-       $(SRCDIR)/config/ServerConfig.cpp \
-       $(SRCDIR)/config/LocationConfig.cpp \
+       $(SRCDIR)/config/ConfigValidator.cpp \
+       $(SRCDIR)/config/ConfigNode.cpp \
        $(SRCDIR)/server/Server.cpp \
        $(SRCDIR)/server/Socket.cpp \
        $(SRCDIR)/server/Client.cpp \
