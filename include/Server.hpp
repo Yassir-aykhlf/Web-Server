@@ -18,8 +18,15 @@
 //     void run();
 //     void stop();
 
+
 //     static Server* _instance;
 //     static void handleSignal(int sig);
+
+
+
+    bool    setupServerSockets();
+    bool    setOptions();
+    bool    bindSocket();
 
 
 // private:

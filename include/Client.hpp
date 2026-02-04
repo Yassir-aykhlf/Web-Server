@@ -23,7 +23,8 @@ class Client {
         void updateRequestBuffer(int len);
         bool isRequestComplete() const;
         void buildResponse();
-        void setSendOffset(ssize_t value);
+        void setSendOffset(size_t value);
+        size_t getSendOffset() const;
 
 
     private:
@@ -31,7 +32,7 @@ class Client {
         std::string _requestBuffer;
         std::string _responseBuffer;
         ClientState _state;
-        ssize_t _sendOffset;
+        size_t _sendOffset;
     };
 
 #endif

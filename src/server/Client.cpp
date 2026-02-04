@@ -8,7 +8,9 @@ and tracks active CGI processes for that client.
 
 #include "Client.hpp"
 
-Client::Client(int fd) : _fd(fd), _state(READING), _requestBuffer(""), _responseBuffer(""), _sendOffset(0) {}
+Client::Client(int fd) : _fd(fd),  _requestBuffer(""), _responseBuffer(""), _sendOffset(0) {
+    _state = READING;
+}
 
 Client::~Client() {}
 
@@ -58,19 +60,29 @@ bool Client::isRequestComplete() const {
     return _requestBuffer.find("\r\n\r\n") != std::string::npos;
 }
 
+std::string integerToString(int value) {
+    std::ostringstream oss;
+    oss << value;
+    return oss.str();
+}
+
+size_t Client::getSendOffset() const {
+    return _sendOffset;
+}
+
 void Client::buildResponse() {
     // For simplicity, always respond with a 200 OK and a fixed body
     std::string body = "<html><body><h1>Hello, World!</h1></body></html>";
     std::string response =
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n"
-        "Content-Length: " + std::to_string(body.size()) + "\r\n"
+        "Content-Length: " + integerToString(body.size()) + "\r\n"
         "Connection: close\r\n"
         "\r\n" +
         body;
     _responseBuffer = response;
 }
 
-void Client::setSendOffset(ssize_t value) {
+void Client::setSendOffset(size_t value) {
     _sendOffset = value;
 }

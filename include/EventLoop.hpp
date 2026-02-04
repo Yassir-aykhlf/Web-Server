@@ -5,6 +5,7 @@
 #include "Config.hpp"
 #include "Server.hpp"
 #include "Client.hpp"
+#include "Logger.hpp"
 
 class EventLoop {
     public:
@@ -21,7 +22,7 @@ class EventLoop {
 
     private:
         Config* _config;
-        Server* _server;
+        // Server* _server;
         bool _running;
         int _n_fds;
         std::vector<struct pollfd> _pollfds;

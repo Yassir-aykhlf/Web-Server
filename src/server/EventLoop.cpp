@@ -7,7 +7,7 @@ and dispatches events (POLLIN/POLLOUT) to the appropriate read/write handlers.
 
 #include "EventLoop.hpp"
 
-EventLoop::EventLoop() : _config(NULL), _running(false), _n_fds(1) {}
+EventLoop::EventLoop() : _config(NULL), _running(false), _n_fds(0) {}
 
 EventLoop::~EventLoop() {}
 
@@ -15,6 +15,14 @@ void EventLoop::setConfig(Config* config) {
     _config = config;
 }
 
+void non_blocking(int fd) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    int result = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    if (result == -1) {
+        perror("Error setting non-blocking mode");
+        exit(EXIT_FAILURE);
+    }
+}
 
 void EventLoop::run() {
     if (!_config) {
@@ -23,21 +31,23 @@ void EventLoop::run() {
     }
     _running = true;
     Logger::info("EventLoop started");
-    int fd_socket = _config->getFdSocket();
 
+    const ServerConfig& serverConfig = _config->getServers()[0];
+    int fd_socket = serverConfig.getFdSocket();
     // Main event loop
-    memset(_pollfds, 0, sizeof(_pollfds));
+    // memset(_pollfds, 0, sizeof(_pollfds));
     _pollfds[0].fd = fd_socket;
     _pollfds[0].events = POLLIN;
-
+    _n_fds = 1;
     // Polling loop
-    _config->getListenFds();
+    //serverConfig.getListenFds();
     while (_running) {
-        int poll_count = poll(_pollfds, n_fds, -1);
+        int poll_count = poll(_pollfds.data(), _pollfds.size(), -1);
+        // int poll_count = poll(_pollfds, _n_fds, -1);
         if (poll_count < 0) {
             Logger::error("Poll error");
             close(fd_socket);
-            return false;
+            return;
         }
 
         // Check for new connections
@@ -87,8 +97,8 @@ void EventLoop::run() {
                 // Handle writable event
                 const std::string& resp = _clients[_pollfds[i].fd]->getResponseBuffer();
                 ssize_t sent = send(_pollfds[i].fd,
-                                    resp.c_str() + _clients[_pollfds[i].fd]->_sendOffset,
-                                    resp.size() - _clients[_pollfds[i].fd]->_sendOffset,
+                                    resp.c_str() + _clients[_pollfds[i].fd]->getSendOffset(),
+                                    resp.size() - _clients[_pollfds[i].fd]->getSendOffset(),
                                     0);
 
                 if (sent < 0) {
@@ -103,9 +113,9 @@ void EventLoop::run() {
                 }
                 else {
                     
-                    _clients[_pollfds[i].fd]->setSendOffset(_clients[_pollfds[i].fd]->_sendOffset + sent);
+                    _clients[_pollfds[i].fd]->setSendOffset(_clients[_pollfds[i].fd]->getSendOffset() + sent);
 
-                    if (_clients[_pollfds[i].fd]->_sendOffset >= resp.size()) {
+                    if (_clients[_pollfds[i].fd]->getSendOffset() >= resp.size()) {
                         _clients[_pollfds[i].fd]->clearResponseBuffer();
                         _clients[_pollfds[i].fd]->setState(READING);
                         _clients[_pollfds[i].fd]->setSendOffset(0);

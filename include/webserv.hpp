@@ -32,7 +32,10 @@
 
 class   Server;
 class   Client;
-class   EvenLoop;
+class   Config;
+class   ServerConfig;
+class   LocationConfig;
+class   EventLoop;
 class   HttpRequest;
 class   HttpResponse;
 class   HttpParser;
