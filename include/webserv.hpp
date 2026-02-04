@@ -58,8 +58,25 @@ enum HttpMethod {
 
 enum HttpStatus {
     STATUS_OK = 200,
+    STATUS_CREATED = 201,
+    STATUS_NO_CONTENT = 204,
+    STATUS_MOVED_PERMANENTLY = 301,
+    STATUS_FOUND = 302,
+    STATUS_SEE_OTHER = 303,
+    STATUS_TEMPORARY_REDIRECT = 307,
+    STATUS_PERMANENT_REDIRECT = 308,
     STATUS_BAD_REQUEST = 400,
+    STATUS_FORBIDDEN = 403,
+    STATUS_NOT_FOUND = 404,
+    STATUS_METHOD_NOT_ALLOWED = 405,
+    STATUS_REQUEST_TIMEOUT = 408,
+    STATUS_PAYLOAD_TOO_LARGE = 413,
     STATUS_URI_TOO_LONG = 414,
+    STATUS_INTERNAL_SERVER_ERROR = 500,
+    STATUS_NOT_IMPLEMENTED = 501,
+    STATUS_BAD_GATEWAY = 502,
+    STATUS_SERVICE_UNAVAILABLE = 503,
+    STATUS_GATEWAY_TIMEOUT = 504
 };
 
 std::string toLower(const std::string& str);
@@ -69,5 +86,6 @@ std::string toUpper(const std::string& str);
 std::vector<std::string> split(const std::string& str, char delimiter);
 std::string urlDecode(const std::string& str);
 std::string normalizePath(const std::string& path);
+std::string trim(const std::string& str);
 
 #endif // WEBSERV_HPP

@@ -90,7 +90,45 @@ bool HttpParser::parseRequestLine() {
 }
 
 bool HttpParser::parseHeaders() {
-    // TODO
+    while (true) {
+        size_t pos = _buffer.find("\r\n");
+        if (pos == std::string::npos)
+            return false;
+        std::string line = _buffer.substr(0, pos);
+        _buffer.erase(0, pos + 2);
+        if (line.empty()) {
+            if (_request.getVersion() == "HTTP/1.1" && _request.getHost().empty()) {
+                setError(STATUS_BAD_REQUEST, "Missing Host header");
+                return false;
+            }
+            if (_request.isChunked()) {
+                _state = PARSE_CHUNKED_SIZE;
+            }
+            else {
+                _contentLength = _request.getContentLength();
+                // Anti-DDos / overflow protection
+                if (_contentLength > _maxBodySize) {
+                    setError(STATUS_PAYLOAD_TOO_LARGE, "Request body too large");
+                    return false;
+                }
+                if (_contentLength > 0) {
+                    _state = PARSE_BODY;
+                }
+                else {
+                    _state = PARSE_COMPLETE;
+                }
+            }
+            return true;
+        }
+        size_t colonPos = line.find(':');
+        if (colonPos == std::string::npos) {
+            setError(STATUS_BAD_REQUEST, "Invalid header format");
+            return false;
+        }
+        std::string name  = trim(line.substr(0, colonPos));
+        std::string value = trim(line.substr(colonPos + 1));
+        _request.setHeader(name, value);
+    }
 }
 
 bool HttpParser::parseBody() {

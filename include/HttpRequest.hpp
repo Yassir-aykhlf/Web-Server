@@ -3,9 +3,6 @@
 
 #include "webserv.hpp"
 
-/*
-parsed HTTP request.
-*/
 class HttpRequest {
 private:
     HttpMethod  _method;
