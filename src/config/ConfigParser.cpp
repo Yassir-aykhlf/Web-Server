@@ -10,7 +10,7 @@ ConfigParser::~ConfigParser()
     }
 }
 
-void ConfigParser::openFile(const std::string &filename)
+void ConfigParser::openFile(const string &filename)
 {
     filename_ = filename;
     if (stream_.is_open())
@@ -35,7 +35,7 @@ char ConfigParser::getChar()
 
 void ConfigParser::skipWhitespace()
 {
-    while (stream_ && std::isspace(peekChar()))
+    while (stream_ && isspace(peekChar()))
     {
         getChar();
     }
@@ -69,17 +69,19 @@ Token ConfigParser::readSingleCharToken()
         getChar();
         return Token(RBRACE, "}");
     default:
-        throw ParseException(std::string("Unexpected character '") + ch + "'" + filename_);
+        throw ParseException(string("Unexpected character '") + ch + "'" + filename_);
     }
 }
 
 Token ConfigParser::readWordToken()
 {
-    std::string value;
-    while (stream_ && !std::isspace(peekChar()) &&
+    string value;
+    while (stream_ && !isspace(peekChar()) &&
            peekChar() != ';' && peekChar() != '{' &&
            peekChar() != '}' && peekChar() != '#')
     {
+        if (stream_.eof())
+            break;
         value += getChar();
     }
     return Token(WORD, value);
@@ -106,30 +108,11 @@ bool ConfigParser::match(TokenType type) const
     return currentToken_.type == type;
 }
 
-// Unused function >
-// bool ConfigParser::matchWord(const std::string &word) const
-// {
-//     return currentToken_.type == WORD && currentToken_.value == word;
-// }
-// Token ConfigParser::expectWord(const std::string &word)
-// {
-//     if (!matchWord(word))
-//     {
-//         std::ostringstream oss;
-//         oss << "Expected '" << word << "' but got '" << currentToken_.value << "'";
-//         throw ParseException(oss.str() + filename_);
-//     }
-//     Token token = currentToken_;
-//     advance();
-//     return token;
-// }
-// Unused function ;
-
 Token ConfigParser::expect(TokenType type)
 {
     if (currentToken_.type != type)
     {
-        std::ostringstream oss;
+        ostringstream oss;
         oss << "Expected ";
         switch (type)
         {
@@ -168,7 +151,6 @@ ConfigNode ConfigParser::parseDirective()
     {
         if (match(EOS))
             throw ParseException("Unexpected end of file in directive '" + nameToken.value + "'");
-
         Token arg = expect(WORD);
         node.addArgument(arg.value);
     }
@@ -204,7 +186,7 @@ void ConfigParser::parseContext(ConfigNode &parent)
     }
 }
 
-ConfigNode ConfigParser::parse(const std::string filename)
+ConfigNode ConfigParser::parse(const string filename)
 {
 
     openFile(filename);

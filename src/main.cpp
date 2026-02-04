@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    std::string configFile;
+    string configFile;
     if (argc == 2)
         configFile = argv[1];
     else
@@ -23,24 +23,15 @@ int main(int argc, char **argv) {
     }
     catch (const ConfigException &e)
     {
-        std::cerr << "Configuration Error: " << e.what() << std::endl;
+        cerr << "Configuration Error: " << e.what() << endl;
         return 1;
     }
-    catch (const std::exception &e)
+    catch (const exception &e)
     {
-        std::cerr << "Error: " << e.what() << std::endl;
+        cerr << "Error: " << e.what() << endl;
         return 1;
     }
     server.run(); 
     Logger::info("Webserv shut down successfully");
     return 0;
 }
-
-// TODO: learn about
-// add error handling for missing or invalid configuration directives
-// add default values for missing configuration options
-// define parsing logic in parse method to populate servers vector
-// define validation logic in validate method to ensure configuration integrity
-// integrate Config class with Server class to initialize server instances based
-// on loaded configuration test heavelly the configuration loading and matching
-// logic

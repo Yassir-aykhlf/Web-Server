@@ -7,62 +7,63 @@
 #include <fstream>
 #include <limits>
 #include <sstream>
+#include <iostream>
 
 enum TokenType
 {
-    WORD,
-    SEMICOLON,
-    LBRACE,
-    RBRACE,
-    EOS
+  WORD,
+  SEMICOLON,
+  LBRACE,
+  RBRACE,
+  EOS
 };
 
 struct Token
 {
-    TokenType   type;
-    std::string value;
+  TokenType type;
+  string value;
 
-    Token() : type(EOS) {}
+  Token() : type(EOS) {}
 
-    Token(TokenType t, const std::string &v) : type(t), value(v) {}
+  Token(TokenType t, const string &v) : type(t), value(v) {}
 };
 
 class ConfigParser
 {
-  private:
-    std::ifstream stream_;
-    Token         currentToken_;
-    std::string   filename_;
+private:
+  ifstream stream_;
+  Token currentToken_;
+  string filename_;
 
-    // ========================================
-    // Tokenization (private methods)
-    // ========================================
-    char peekChar();
-    char getChar();
-    void skipWhitespace();
-    void skipComments();
+  // ========================================
+  // Tokenization (private methods)
+  // ========================================
+  char peekChar();
+  char getChar();
+  void skipWhitespace();
+  void skipComments();
 
-    Token readSingleCharToken();
-    Token readWordToken();
-    Token readNextToken();
+  Token readSingleCharToken();
+  Token readWordToken();
+  Token readNextToken();
 
-    // ========================================
-    // Token interface (private)
-    // ========================================
-    void  advance();
-    bool  match(TokenType type) const;
-    Token expect(TokenType type);
+  // ========================================
+  // Token interface (private)
+  // ========================================
+  void advance();
+  bool match(TokenType type) const;
+  Token expect(TokenType type);
 
-    // ========================================
-    // Parsing (private methods)
-    // ========================================
-    void       openFile(const std::string &filename);
-    void       parseContext(ConfigNode &parent);
-    ConfigNode parseDirective();
+  // ========================================
+  // Parsing (private methods)
+  // ========================================
+  void openFile(const string &filename);
+  void parseContext(ConfigNode &parent);
+  ConfigNode parseDirective();
 
-  public:
-    ConfigParser();
-    ~ConfigParser();
+public:
+  ConfigParser();
+  ~ConfigParser();
 
-    ConfigNode parse(const std::string filename);
+  ConfigNode parse(const string filename);
 };

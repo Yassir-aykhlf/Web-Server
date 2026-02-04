@@ -25,10 +25,10 @@ class ConfigRouter
   ConfigNode server;
 
 public:
-  ConfigNode route(std::string path); // this will return a location in a server
-                                      // maybe a should creat a class location , that will be returned
-                                      // and the data inside it will be accesed like this with operator[] overload (Location obj["Directive"]) the data will be template maybe
-                                      // if data is not defined get server data or use default if not in server
+  Location route(URI path); // this will return a location in a server
+                                 // maybe a should creat a class location , that will be returned
+                                 // and the data inside it will be accesed like this with operator[] overload (Location obj["Directive"]) the data will be template maybe
+                                 // if data is not defined get server data or use default if not in server
 };
 
 // TODO :

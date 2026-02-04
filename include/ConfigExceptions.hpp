@@ -1,20 +1,22 @@
 #pragma once
 #include <stdexcept>
 
-class ConfigException : public std::runtime_error
+using namespace std;
+
+class ConfigException : public runtime_error
 {
 public:
-  explicit ConfigException(const std::string &msg) : std::runtime_error(msg) {}
+  explicit ConfigException(const string &msg) : runtime_error(msg) {}
 };
 
-class ParseException : public std::runtime_error
+class ParseException : public runtime_error
 {
 public:
-  explicit ParseException(const std::string &msg) : std::runtime_error(msg) {}
+  explicit ParseException(const string &msg) : runtime_error(msg) {}
 };
 
-class FileException : public std::runtime_error
+class FileException : public runtime_error
 {
 public:
-  explicit FileException(const std::string &msg) : std::runtime_error(msg) {}
+  explicit FileException(const string &msg) : runtime_error(msg) {}
 };
