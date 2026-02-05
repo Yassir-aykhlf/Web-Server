@@ -45,6 +45,16 @@ private:
   }
 
 public:
+  Location() {};
+  Location &operator=(const Location &other)
+  {
+    if (this != &other)
+    {
+      serverNode_ = other.serverNode_;
+      location_ = other.location_;
+    }
+    return *this;
+  }
   Location(const ConfigNode &loc, const ConfigNode &server)
       : serverNode_(server), location_(loc) {}
 
