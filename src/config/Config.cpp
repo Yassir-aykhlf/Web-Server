@@ -99,13 +99,13 @@ pair<string, int> Config::parseListenArgument(const string &arg) const
         for (size_t i = 0; i < arg.length(); i++)
         {
             if (!isdigit(arg[i]))
-                make_pair("localhost", stoi(arg));
+                make_pair("localhost", atoi(arg.c_str()));
         }
 
         return make_pair(arg, 80);
     }
     string host = arg.substr(0, colonPos);
-    int port = stoi(arg.substr(colonPos + 1));
+    int port = atoi(arg.substr(colonPos + 1).c_str());
     return make_pair(host, port);
 }
 
@@ -129,7 +129,7 @@ vector<ServerConfigue> Config::getServerConfigues() const
 
     vector<ConfigNode> children = ast_.getChildren();
 
-    for (int i = 0; i < children.size(); ++i)
+    for (size_t i = 0; i < children.size(); ++i)
     {
         ServerConfigue serverConfigue;
         serverConfigue.setNode(children[i]);

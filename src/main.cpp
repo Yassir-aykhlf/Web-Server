@@ -23,8 +23,8 @@ int main(int argc, char **argv) {
         vector<ServerConfigue> serverConfs = config.getServerConfigues();
         // here example of how to route data
         ConfigRouter router(serverConfs[0]);
-        Location location = router.route("/some/path"); //TODO : make this 
-        string root = location["root"]; // TODO : Fix this
+        // Location location = router.route("/some/path"); //TODO : make this 
+        // string root = location["root"]; // TODO : Fix this
     }
     catch (const ConfigException &e)
     {
@@ -40,3 +40,5 @@ int main(int argc, char **argv) {
     Logger::info("Webserv shut down successfully");
     return 0;
 }
+
+// 

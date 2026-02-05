@@ -25,13 +25,15 @@
 
 class ConfigRouter
 {
-  ServerConfigue serverConf;
+private:
+  const ServerConfigue &serverConf_;
 
 public:
-  ConfigRouter(const ServerConfigue &serverConf) : serverConf(serverConf) {};
+  ConfigRouter(const ServerConfigue &serverConf)
+      : serverConf_(serverConf) {}
+
   Location route(std::string path);
 };
-
 // TODO :
 //! soo in serverconfigue i will allerdy build a locationtrie struct , wich will be a tree that hold all location
 //! struct will have (path , Location , childrens)

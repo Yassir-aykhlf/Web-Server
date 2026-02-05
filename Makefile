@@ -9,6 +9,8 @@ OBJDIR = obj
 
 SRCS = $(SRCDIR)/main.cpp \
        $(SRCDIR)/config/Config.cpp \
+       $(SRCDIR)/config/uri.cpp \
+       $(SRCDIR)/config/ConfigRouter.cpp \
        $(SRCDIR)/config/ConfigParser.cpp \
        $(SRCDIR)/config/ConfigValidator.cpp \
        $(SRCDIR)/config/ConfigNode.cpp \
