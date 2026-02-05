@@ -20,6 +20,11 @@ int main(int argc, char **argv) {
         Config config(configFile);
         config.load();
         config.printAST(); //? print the AST for debugging
+        vector<ServerConfigue> serverConfs = config.getServerConfigues();
+        // here example of how to route data
+        ConfigRouter router(serverConfs[0]);
+        Location location = router.route("/some/path"); //TODO : make this 
+        string root = location["root"]; // TODO : Fix this
     }
     catch (const ConfigException &e)
     {

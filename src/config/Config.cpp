@@ -90,3 +90,54 @@ void Config::load()
         throw;
     }
 }
+
+pair<string, int> Config::parseListenArgument(const string &arg) const
+{
+    size_t colonPos = arg.find(':');
+    if (colonPos == string::npos)
+    {
+        for (size_t i = 0; i < arg.length(); i++)
+        {
+            if (!isdigit(arg[i]))
+                make_pair("localhost", stoi(arg));
+        }
+
+        return make_pair(arg, 80);
+    }
+    string host = arg.substr(0, colonPos);
+    int port = stoi(arg.substr(colonPos + 1));
+    return make_pair(host, port);
+}
+
+pair<string, int> Config::getListenInfo(const ConfigNode &serverNode) const
+{
+    const vector<ConfigNode> &directives = serverNode.getChildren();
+    for (size_t i = 0; i < directives.size(); ++i)
+    {
+        if (directives[i].getName() == "listen" &&
+            !directives[i].getArguments().empty())
+        {
+            return parseListenArgument(directives[i].getArguments()[0]);
+        }
+    }
+    return make_pair("localhost", 80);
+}
+
+vector<ServerConfigue> Config::getServerConfigues() const
+{
+    vector<ServerConfigue> serverConfigues;
+
+    vector<ConfigNode> children = ast_.getChildren();
+
+    for (int i = 0; i < children.size(); ++i)
+    {
+        ServerConfigue serverConfigue;
+        serverConfigue.setNode(children[i]);
+        // TODO : handel multiple server blocks with the same ip:port
+        pair<string, int> listenInfo = getListenInfo(children[i]);
+        serverConfigue.setHost(listenInfo.first);
+        serverConfigue.setPort(listenInfo.second);
+        serverConfigues.push_back(serverConfigue);
+    }
+    return serverConfigues;
+}

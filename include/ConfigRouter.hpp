@@ -2,6 +2,9 @@
 
 #include "ConfigNode.hpp"
 #include "ConfigExceptions.hpp"
+#include "Location.hpp"
+#include "ServerConfigue.hpp"
+#include "URI.hpp"
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -22,47 +25,16 @@
 
 class ConfigRouter
 {
-  ConfigNode server;
+  ServerConfigue serverConf;
 
 public:
-  Location route(URI path); // this will return a location in a server
-                                 // maybe a should creat a class location , that will be returned
-                                 // and the data inside it will be accesed like this with operator[] overload (Location obj["Directive"]) the data will be template maybe
-                                 // if data is not defined get server data or use default if not in server
+  ConfigRouter(const ServerConfigue &serverConf) : serverConf(serverConf) {};
+  Location route(std::string path);
 };
 
 // TODO :
-// First : i need to understand what is happening in the reqeust/respons multiplexer ...
-
-// ============================================================
-//! STEP 1 — HttpConfig
-// Pick the right server from the config
-// Based on: client IP, port, and Host header
-// Most specific match wins
-// If nothing matches → use first server in config
-// ============================================================
-
-// ============================================================
-//! STEP 2 — ConfigRouter
-// Takes the picked server
-// Finds the right location based on the request path
-// Longest matching path wins
-// Falls back to / if nothing matches
-// Returns 404 if / doesn't exist either
-// ============================================================
-
-// ============================================================
-//! STEP 3 — route(path)
-// Takes the request path (e.g. /upload/images/photo.jpg)
-// Loops through all locations in the server
-// Finds the best match
-// Returns a Location object
-// ============================================================
-
-// ============================================================
-//! STEP 4 — Location
-// Holds the matched location config
-// Gives access to directives with operator[]
-// If directive not in location → check server
-// If not in server either → return default
-// ============================================================
+//! soo in serverconfigue i will allerdy build a locationtrie struct , wich will be a tree that hold all location
+//! struct will have (path , Location , childrens)
+//! the router is the one who will use that trie to find the location that match the path
+//! so the route method will take a path string , then search in the trie for the best match location
+//! then return that location instance

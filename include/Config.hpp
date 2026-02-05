@@ -13,6 +13,9 @@
 #include "ConfigParser.hpp"
 #include "ConfigExceptions.hpp"
 #include "ConfigValidator.hpp"
+#include "ServerConfigue.hpp"
+#include "ConfigRouter.hpp"
+#include "URI.hpp"
 
 using namespace std;
 
@@ -27,8 +30,11 @@ public:
   void load();
 
   // getters
-  const ConfigNode &getAST() const { return ast_; };
-  ConfigNode getServer(const string &name, const string &port) const;
+  const ConfigNode &getAST()  { return ast_; };
+
+  pair<string, int> parseListenArgument(const string &arg) const;
+  pair<string, int> getListenInfo(const ConfigNode &serverNode) const;
+  vector<ServerConfigue> getServerConfigues() const;
 
   // Debugging
   void printAST(const ConfigNode &node, int indent) const;
