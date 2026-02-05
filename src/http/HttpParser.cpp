@@ -132,7 +132,19 @@ bool HttpParser::parseHeaders() {
 }
 
 bool HttpParser::parseBody() {
-    // TODO
+    size_t remaining = _contentLength - _bodyBytesRead;
+    size_t available = _buffer.length();
+    size_t toRead = (available < remaining) ? available : remaining;
+    if (toRead > 0) {
+        _request.appendBody(_buffer.substr(0, toRead));
+        _buffer.erase(0, toRead);
+        _bodyBytesRead += toRead;
+    }
+    if (_bodyBytesRead >= _contentLength) {
+        _state = PARSE_COMPLETE;
+        return true;
+    }
+    return false;
 }
 
 bool HttpParser::parseChunkSize() {
