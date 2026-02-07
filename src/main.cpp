@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
         vector<ServerConfigue> serverConfs = config.getServerConfigues();
 
         ConfigRouter router(serverConfs[0]);
-        Location location = router.route("/uplo");
+        Location location = router.route("/upload");
         string root = location["root"];
         vector<string> index = location["index"];
         cout << "this is root at " << root << endl;
