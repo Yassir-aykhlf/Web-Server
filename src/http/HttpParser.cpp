@@ -148,11 +148,47 @@ bool HttpParser::parseBody() {
 }
 
 bool HttpParser::parseChunkSize() {
-    // TODO
+    size_t pos = _buffer.find("\r\n");
+    if (pos == std::string::npos) {
+        return false;
+    }
+    std::string line = _buffer.substr(0, pos);
+    _buffer.erase(0, pos + 2);
+    std::istringstream iss(line);
+    iss >> std::hex >> _chunkSize;
+    if (_chunkSize == 0) {
+        if (_buffer.length() >= 2 && _buffer.substr(0, 2) == "\r\n") {
+            _buffer.erase(0, 2);
+        }
+        _state = PARSE_COMPLETE;
+        return true;
+    }
+    if (_request.getBody().length() + _chunkSize > _maxBodySize) {
+        setError(STATUS_PAYLOAD_TOO_LARGE, "Request body too large");
+        return false;
+    }
+    _chunkBytesRead = 0;
+    _state = PARSE_CHUNKED_DATA;
+    return true;
 }
 
 bool HttpParser::parseChunkData() {
-    // TODO
+    size_t remaining = _chunkSize - _chunkBytesRead;
+    size_t available = _buffer.length();
+    size_t toRead = (available < remaining) ? available : remaining;
+    if (toRead > 0) {
+        _request.appendBody(_buffer.substr(0, toRead));
+        _buffer.erase(0, toRead);
+        _chunkBytesRead += toRead;
+    }
+    if (_chunkBytesRead >= _chunkSize) {
+        if (_buffer.length() >= 2 && _buffer.substr(0, 2) == "\r\n") {
+            _buffer.erase(0, 2);
+        }
+        _state = PARSE_CHUNKED_SIZE;
+        return true;
+    }
+    return false;
 }
 
 void HttpParser::reset() {
