@@ -53,6 +53,10 @@ HttpParser::ParseResult HttpParser::parse(const char* data, size_t len) {
 
 bool HttpParser::parseRequestLine() {
     size_t pos = _buffer.find("\r\n");
+    if (pos == 0) {
+        _buffer.erase(0, 2);
+        return false;
+    }
     if (pos == std::string::npos) {
         return false;
     }
