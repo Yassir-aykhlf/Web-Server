@@ -12,6 +12,7 @@ SRCS = $(SRCDIR)/main.cpp \
        $(SRCDIR)/config/uri.cpp \
        $(SRCDIR)/config/ConfigRouter.cpp \
        $(SRCDIR)/config/ConfigParser.cpp \
+       $(SRCDIR)/config/Location.cpp \
        $(SRCDIR)/config/ConfigValidator.cpp \
        $(SRCDIR)/config/ConfigNode.cpp \
        $(SRCDIR)/server/Server.cpp \

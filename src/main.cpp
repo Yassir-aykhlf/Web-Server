@@ -21,10 +21,13 @@ int main(int argc, char **argv) {
         config.load();
         config.printAST(); //? print the AST for debugging
         vector<ServerConfigue> serverConfs = config.getServerConfigues();
-        // here example of how to route data
+
         ConfigRouter router(serverConfs[0]);
-        // Location location = router.route("/some/path"); //TODO : make this 
-        // string root = location["root"]; // TODO : Fix this
+        Location location = router.route("/uplo");
+        string root = location["root"];
+        vector<string> index = location["index"];
+        cout << "this is root at " << root << endl;
+            cout << "this is index at " << index[0] << endl;
     }
     catch (const ConfigException &e)
     {
@@ -41,4 +44,3 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-// 
