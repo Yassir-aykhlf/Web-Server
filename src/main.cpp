@@ -161,9 +161,33 @@ int main(int argc, char **argv)
 
         Location location = router.route("/"); // this return a location , wich allows us easy access to data + deafult handling and fallling to server
 
+        string root = location["root"];
+        cout << "Root: " << root << endl;
+        pair<vector<int>, string> errorPage = location["error_page"];
+        if (!errorPage.first.empty()) {
+            cout << "Error Pages: [";
+            for (size_t i = 0; i < errorPage.first.size(); ++i) {
+                cout << errorPage.first[i];
+                if (i < errorPage.first.size() - 1) cout << ", ";
+            }
+            cout << "] -> " << errorPage.second << endl;
+        } else {
+            cout << "Error Pages: (none)" << endl;
+        }
+        vector<string> indexFiles = location["index"];
+        cout << "Index Files: ";
+        if (indexFiles.empty()) {
+            cout << "(none)";        } else {
+            for (size_t i = 0; i < indexFiles.size(); ++i) {
+                cout << indexFiles[i];
+                if (i < indexFiles.size() - 1) cout << ", ";
+            }
+        }
+        cout << endl;
+
         // this is an example for how to use the router
         // in this case we have an empthy file to test all the deafault that should be handled based on nginx
-        testDefaultValues(serverConfs[0], location);
+        // testDefaultValues(serverConfs[0], location);
         // cout << serverConfs[0].getHost() << ":" << serverConfs[0].getPort() << endl;
     }
     catch (const ConfigException &e)
