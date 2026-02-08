@@ -2,23 +2,6 @@
 #include <iostream>
 #include <string>
 
-/*
-handles command-line arguments,
-instantiates the Server object,
-triggers initialization with the configuration file,
-and starts the main execution loop.
-*/
-
-// this is my world now , let's go and start working on it
-
-// 1 - programe take a confige file (.conf)
-// 2 - open it check it's valid to open and existe if not throw an excpetion
-// 3 - proccess file , i need to throw an error sepicifique to that problem
-// 4 - after parsing it , it will be stored in a data structure that the the
-// others will use to proccess things
-//  i think this is my main goal for now
-
-
 void testDefaultValues(const ServerConfigue& server, const Location& location) {
     cout << "========================================" << endl;
     cout << "Testing Default Values Implementation" << endl;
