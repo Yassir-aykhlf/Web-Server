@@ -1,12 +1,144 @@
-#include "Server.hpp"
-#include "Logger.hpp"
+#include "webserv.hpp"
+#include <iostream>
+#include <string>
 
-int main(int argc, char **argv) {
-    std::string configFile;
-    Server      server; // TODO: create server class
+/*
+handles command-line arguments,
+instantiates the Server object,
+triggers initialization with the configuration file,
+and starts the main execution loop.
+*/
 
-    if (argc > 2) {
-        std::cerr << "Usage: " << argv[0] << " [config_file]" << std::endl;
+// this is my world now , let's go and start working on it
+
+// 1 - programe take a confige file (.conf)
+// 2 - open it check it's valid to open and existe if not throw an excpetion
+// 3 - proccess file , i need to throw an error sepicifique to that problem
+// 4 - after parsing it , it will be stored in a data structure that the the
+// others will use to proccess things
+//  i think this is my main goal for now
+
+
+void testDefaultValues(const ServerConfigue& server, const Location& location) {
+    cout << "========================================" << endl;
+    cout << "Testing Default Values Implementation" << endl;
+    cout << "========================================" << endl << endl;
+
+    // Server-level directives
+    cout << "=== Server Configuration ===" << endl;
+    cout << "IP:                    " << server.getHost() << endl;
+    cout << "Port:                  " << server.getPort() << endl;
+    
+    //TODO : Server names (str list)
+
+    // Location-level directives
+    cout << "=== Location / Configuration ===" << endl;
+
+    // String directives
+    string root = location["root"];
+    cout << "Root:                  " << root << " (expected: \"html\" or \"/usr/share/nginx/html\")" << endl;
+
+    string clientMaxBodySize = location["client_max_body_size"];
+    cout << "Client Max Body Size:  " << (clientMaxBodySize.empty() ? "(empty)" : clientMaxBodySize) 
+         << " (expected: \"1m\")" << endl;
+
+    string clientBodyTimeout = location["client_body_timeout"];
+    cout << "Client Body Timeout:   " << (clientBodyTimeout.empty() ? "(empty)" : clientBodyTimeout) 
+         << " (expected: \"60s\")" << endl;
+
+    string uploadStore = location["upload_store"];
+    cout << "Upload Store:          " << (uploadStore.empty() ? "(empty - expected)" : uploadStore) << endl;
+
+    string cgiPath = location["cgi_path"];
+    cout << "CGI Path:              " << (cgiPath.empty() ? "(empty - expected)" : cgiPath) << endl;
+
+    string cgiTimeout = location["cgi_timeout"];
+    cout << "CGI Timeout:           " << (cgiTimeout.empty() ? "(empty - expected)" : cgiTimeout) << endl;
+
+    cout << endl;
+
+    // List directives
+    cout << "Index:                 ";
+    vector<string> indexFiles = location["index"];
+    if (indexFiles.empty()) {
+        cout << "(empty)";
+    } else {
+        for (size_t i = 0; i < indexFiles.size(); ++i) {
+            cout << indexFiles[i];
+            if (i < indexFiles.size() - 1) cout << ", ";
+        }
+    }
+    cout << " (expected: [\"index.html\"])" << endl;
+
+    cout << "Allowed Methods:       ";
+    vector<string> methods = location["method"];
+    if (methods.empty()) {
+        cout << "(empty - ALL methods allowed - expected)";
+    } else {
+        for (size_t i = 0; i < methods.size(); ++i) {
+            cout << methods[i];
+            if (i < methods.size() - 1) cout << ", ";
+        }
+    }
+    cout << endl;
+
+    cout << "CGI Extensions:        ";
+    vector<string> cgiExts = location["cgi_ext"];
+    if (cgiExts.empty()) {
+        cout << "(empty - expected)";
+    } else {
+        for (size_t i = 0; i < cgiExts.size(); ++i) {
+            cout << cgiExts[i];
+            if (i < cgiExts.size() - 1) cout << ", ";
+        }
+    }
+    cout << endl;
+
+    cout << endl;
+
+    // Boolean directives
+    bool autoindex = location["autoindex"];
+    cout << "Autoindex:             " << (autoindex ? "on" : "off") 
+         << " (expected: off)" << endl;
+
+    bool internal = location["internal"];
+    cout << "Internal:              " << (internal ? "on" : "off") 
+         << " (expected: off)" << endl;
+
+    cout << endl;
+
+    // Pair directives
+    cout << "Error Pages:           ";
+    pair<vector<int>, string> errorPage = location["error_page"];
+    if (errorPage.first.empty()) {
+        cout << "(none - expected)";
+    } else {
+        cout << "[";
+        for (size_t i = 0; i < errorPage.first.size(); ++i) {
+            cout << errorPage.first[i];
+            if (i < errorPage.first.size() - 1) cout << ", ";
+        }
+        cout << "] -> " << errorPage.second;
+    }
+    cout << endl;
+
+    cout << "Return:                ";
+    pair<int, string> returnDirective = location["return"];
+    if (returnDirective.first == 0 && returnDirective.second.empty()) {
+        cout << "(none - expected)";
+    } else {
+        cout << returnDirective.first << " " << returnDirective.second;
+    }
+    cout << endl;
+
+    cout << endl;
+    cout << "========================================" << endl;
+}
+int main(int argc, char **argv)
+{
+    if (argc > 2)
+    {
+        cerr << "Usage: " << argv[0] << " [config_file]" << endl;
         return 1;
     }
 
@@ -19,15 +151,20 @@ int main(int argc, char **argv) {
     {
         Config config(configFile);
         config.load();
+        
         config.printAST(); //? print the AST for debugging
-        vector<ServerConfigue> serverConfs = config.getServerConfigues();
 
-        ConfigRouter router(serverConfs[0]);
-        Location location = router.route("/upload");
-        string root = location["root"];
-        vector<string> index = location["index"];
-        cout << "this is root at " << root << endl;
-            cout << "this is index at " << index[0] << endl;
+        vector<ServerConfigue> serverConfs = config.getServerConfigues(); // each serverconfigue has a unique ip port , still need to handel server_names
+
+
+        ConfigRouter router(serverConfs[0]); // a router creates a trie tree to help me map any path for each configue
+
+        Location location = router.route("/"); // this return a location , wich allows us easy access to data + deafult handling and fallling to server
+
+        // this is an example for how to use the router
+        // in this case we have an empthy file to test all the deafault that should be handled based on nginx
+        testDefaultValues(serverConfs[0], location);
+        // cout << serverConfs[0].getHost() << ":" << serverConfs[0].getPort() << endl;
     }
     catch (const ConfigException &e)
     {

@@ -105,8 +105,13 @@ string Location::getDefaultString(const string &key) const
 {
   if (key == "root")
     return "/var/www/html";
-  if (key == "upload_store")
-    return "";
+  if (key == "client_max_body_size")
+    return "1m";
+  if (key == "client_body_timeout")
+    return "60s";
+  if (key == "cgi_timeout")
+    return "30s"; 
+
   return "";
 }
 
@@ -129,13 +134,18 @@ vector<string> Location::getDefaultList(const string &key) const
   }
   if (key == "method")
   {
-    vector<string> defaults;
-    defaults.push_back("GET");
-    return defaults;
+    return vector<string>();
+  }
+  if (key == "server_name")
+  {
+    return vector<string>();
+  }
+  if (key == "cgi_ext")
+  {
+    return vector<string>();
   }
   return vector<string>();
 }
-
 // ============================================================
 // ConfigValue implementations
 // ============================================================
@@ -166,3 +176,48 @@ ConfigValue::operator pair<int, string>() const
 {
   return location_->getPairVal(key_);
 }
+
+
+// "server_name" returns str list
+//   Default: "" (empty string)
+
+// "error_page" returns pair(int list, string)
+//   Default: none (no default error pages configured)
+
+// "client_max_body_size" returns string
+//   Default: "1m" (1 megabyte)
+
+// "client_body_timeout" returns string
+//   Default: "60s" (60 seconds)
+
+// "root" returns string
+//   Default: "html" or "/usr/share/nginx/html" (depends on installation)
+
+// "index" returns str list
+//   Default: ["index.html"]
+
+// "autoindex" returns bool
+//   Default: off (false)
+
+// "method" returns str list
+//   Default: none (all methods allowed if not specified)
+//   Note: This isn't a standard Nginx directive - you might mean limit_except
+
+// "return" returns pair(int, string)
+//   Default: none (no default return)
+
+// "internal" returns bool
+//   Default: off (false)
+
+// "cgi_ext" returns str list
+//   Default: none (not a standard Nginx directive - custom for CGI)
+
+// "cgi_path" returns string
+//   Default: none (not a standard Nginx directive - custom for CGI)
+
+// "cgi_timeout" returns string
+//   Default: none (not a standard Nginx directive - custom for CGI)
+
+// "upload_store" returns string
+//   Default: none (not a standard Nginx directive by default)
+//   Note: This is from nginx-upload-module or similar

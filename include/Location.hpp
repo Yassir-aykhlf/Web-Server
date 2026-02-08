@@ -47,8 +47,4 @@ public:
   pair<int, string> getPairVal(const string &key) const;
   ConfigValue operator[](const string &key) const;
 };
-// so configuerouter will have serverConfigue instance and route method takes URI class instance , that return a Location that can accessed using op[] ,
-//!  So each instance of confrouter is a router to a sepicifique location
 
-//? what about storing fd socket at the server configue ?
-// TODO : understand why He store the fd of the socket in the server configue , and if it wrong fix it

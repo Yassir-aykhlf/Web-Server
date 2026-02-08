@@ -62,6 +62,8 @@ void ConfigRouter::insertLocationByURI(const URI& uri, const ConfigNode& locatio
   for (size_t i = 0; i < segments.size(); i++)
   {
     const string& seg = segments[i];
+
+    cout << "Inserting segment: " << seg << endl;
     
     // Look for existing child with this segment
     LocationTrieNode* child = NULL;
@@ -152,7 +154,7 @@ Location ConfigRouter::route(const string& path)
   // Parse URI from path string
   URI uri(path);
   
-  // Normalize the path (removes .., ., multiple slashes)
+  // Normalize the path (removes .., ., and more :) )
   string normalizedPath = uri.getNormalizedPath();
   
   // Create URI from normalized path for matching
@@ -168,3 +170,10 @@ Location ConfigRouter::route(const string& path)
   // No match found - return empty Location
   return Location(ConfigNode(), serverConf_.getNode());
 }
+
+
+//TODO :
+// 0 - understand how routing works 
+// 1 - Fix the location class check the defaults and how it's go back to the server
+// 2 - implement the virtuale servers
+// 3 - merge with main and test
