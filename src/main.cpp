@@ -200,8 +200,6 @@ int main(int argc, char **argv)
         cerr << "Error: " << e.what() << endl;
         return 1;
     }
-    server.run(); 
-    Logger::info("Webserv shut down successfully");
     return 0;
 }
 
