@@ -8,6 +8,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <netdb.h>
+#include <sys/socket.h>
 
 #define MAX_PARAMS_SIZE 1000
 
@@ -45,7 +47,7 @@ class ConfigValidator
 private:
   map<string, DirectiveRule> rules_;
 
-  // Parameter validation functions
+  // Parameter validation functions;
   static bool isValidHostname(const string &hostname);
   static bool isValidIPv4(const string &ip);
   static bool isValidIPv6(const string &ip);

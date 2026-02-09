@@ -93,8 +93,103 @@ void Config::load()
     }
 }
 
-pair<string, int> Config::parseListenArgument(const string &arg) const
+bool Config::isIPv4(const string &ip) 
 {
+    if (ip.empty())
+        return false;
+
+    vector<string> octets;
+    stringstream ss(ip);
+    string octet;
+
+    // Split by '.'
+    while (getline(ss, octet, '.'))
+    {
+        octets.push_back(octet);
+    }
+
+    // Must have exactly 4 octets
+    if (octets.size() != 4)
+        return false;
+
+    // Validate each octet
+    for (size_t i = 0; i < octets.size(); i++)
+    {
+        if (octets[i].empty())
+            return false;
+
+        // Check all characters are digits
+        for (size_t j = 0; j < octets[i].length(); j++)
+        {
+            if (!isdigit(octets[i][j]))
+                return false;
+        }
+
+        // Convert to integer and check range
+        stringstream octetSS(octets[i]);
+        int num;
+        if (!(octetSS >> num) || !octetSS.eof())
+            return false;
+
+        if (num < 0 || num > 255)
+            return false;
+    }
+
+    return true;
+}
+
+void Config::inetAddressStr(sockaddr *addr, socklen_t addrlen, string &host, string &port) 
+{
+    stringstream addrStr;
+    char _host[NI_MAXHOST], service[NI_MAXSERV];
+    int errorNumber = 0;
+
+    if (getnameinfo(addr, addrlen, _host, NI_MAXHOST, service,
+                    NI_MAXSERV, NI_NUMERICHOST) == 0)
+    {
+        host = _host;
+        port = service;
+    }
+    else
+        errorNumber = 1;
+}
+
+string Config::getIpByHost(const string &host)
+{
+    addrinfo hints, *result = NULL;
+    string ip = "";
+    string dummyPort = "";
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if (getaddrinfo(host.c_str(), NULL, &hints, &result) != 0)
+        throw ConfigException("Hostname '" + host + "' does not resolve to an IP address");
+    if (result != NULL)
+    {
+        inetAddressStr(result->ai_addr, result->ai_addrlen, ip, dummyPort);
+        freeaddrinfo(result);
+    }
+
+    return ip;
+}
+
+pair<string, int> Config::parseListenArgument(const string &arg)
+{
+    string host;
+    if (arg[0] == '[')
+    {
+        size_t closeBracket = arg.find(']');
+
+        host = arg.substr(1, closeBracket - 1);
+
+        if (closeBracket + 1 < arg.length())
+        {
+            int port = atoi(arg.substr(closeBracket + 2).c_str());
+            return make_pair(host, port);
+        }
+        return make_pair(host, 80);
+    }
     size_t colonPos = arg.find(':');
     if (colonPos == string::npos)
     {
@@ -105,14 +200,18 @@ pair<string, int> Config::parseListenArgument(const string &arg) const
             if (i == arg.length() - 1)
                 return make_pair("0.0.0.0", atoi(arg.c_str()));
         }
+        if (!isIPv4(arg))    
+            return make_pair(getIpByHost(arg), 80);
         return make_pair(arg, 80);
     }
-    string host = arg.substr(0, colonPos);
+    host = arg.substr(0, colonPos);
+    if (!isIPv4(host))
+        host = getIpByHost(host);
     int port = atoi(arg.substr(colonPos + 1).c_str());
     return make_pair(host, port);
 }
 
-vector<pair<string, int> > Config::getAllListenInfo(const ConfigNode &serverNode) const
+vector<pair<string, int> > Config::getAllListenInfo(const ConfigNode &serverNode)
 {
     vector<pair<string, int> > listenList;
     const vector<ConfigNode> &directives = serverNode.getChildren();
@@ -139,7 +238,7 @@ vector<pair<string, int> > Config::getAllListenInfo(const ConfigNode &serverNode
     return listenList;
 }
 
-vector<string> Config::getServerNames(const ConfigNode &serverNode) const
+vector<string> Config::getServerNames(const ConfigNode &serverNode)
 {
     vector<string> serverNames;
     const vector<ConfigNode> &directives = serverNode.getChildren();
@@ -154,7 +253,7 @@ vector<string> Config::getServerNames(const ConfigNode &serverNode) const
     return serverNames;
 }
 
-vector<ServerConfigue> Config::getServerConfigues() const
+vector<ServerConfigue> Config::getServerConfigues()
 {
     map<string, ServerConfigue> socketMap;
 

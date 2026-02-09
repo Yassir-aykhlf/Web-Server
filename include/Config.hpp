@@ -29,12 +29,16 @@ public:
   Config(const string filename);
   void load();
 
-  const ConfigNode &getAST()  { return ast_; };
+  const ConfigNode &getAST() { return ast_; };
 
-  pair<string, int> parseListenArgument(const string &arg) const;
-  vector<pair<string, int> > getAllListenInfo(const ConfigNode &serverNode) const;
-  vector<string> getServerNames(const ConfigNode &serverNode) const;
-  vector<ServerConfigue> getServerConfigues() const;
+  bool isIPv4(const string &ip);
+  void inetAddressStr(sockaddr *addr, socklen_t addrlen, string &host, string &port);
+  string getIpByHost(const string &host) ;
+  // Parse a listen argument and return the corresponding (ip, port) pair
+  pair<string, int> parseListenArgument(const string &arg) ;
+  vector<pair<string, int> > getAllListenInfo(const ConfigNode &serverNode) ;
+  vector<string> getServerNames(const ConfigNode &serverNode) ;
+  vector<ServerConfigue> getServerConfigues() ;
 
   // Debugging
   void printAST(const ConfigNode &node, int indent) const;

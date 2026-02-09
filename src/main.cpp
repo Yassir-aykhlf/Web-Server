@@ -116,6 +116,7 @@
 //     cout << "========================================" << endl;
 // }
 
+
 int main(int argc, char **argv)
 {
     if (argc > 2)
@@ -136,11 +137,13 @@ int main(int argc, char **argv)
 
         // config.printAST(); //? print the AST for debugging
 
+        // cout << "ip : " << getIpByHost("localhost") << endl;
+
         vector<ServerConfigue> serverConfs = config.getServerConfigues();
         for (size_t i = 0; i < serverConfs.size(); i++)
         {
 
-            ConfigRouter router(serverConfs[i]);
+            ConfigRouter router(serverConfs[i],"unexisting");
 
             cout << "IP:PORT: " << serverConfs[i].getHost() << ":" << serverConfs[i].getPort() << endl;
 
@@ -163,3 +166,8 @@ int main(int argc, char **argv)
     }
     return 0;
 }
+
+// TODO :
+//  check if name i resolveable to an ip inside the parsing
+//! FIXE :
+// IP:PORT: [0:0

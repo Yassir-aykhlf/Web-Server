@@ -26,7 +26,7 @@ void ConfigValidator::initializeRules()
     rules_["http"] = DirectiveRule(0, 0, true, empty, NULL);
     rules_["server"] = DirectiveRule(0, 0, true, httpParents, NULL);
     rules_["location"] = DirectiveRule(1, 1, true, serverParents, &ConfigValidator::validateLocation);
-    
+
     // ==========================================
     // SERVER CONTEXT DIRECTIVES
     // ==========================================
@@ -132,6 +132,7 @@ void ConfigValidator::validate(const ConfigNode &root)
 // ==========================================
 // VALIDATOR IMPLEMENTATIONS
 // ==========================================
+
 
 bool ConfigValidator::isValidHostname(const string &hostname)
 {
