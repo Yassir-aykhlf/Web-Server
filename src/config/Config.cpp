@@ -1,5 +1,7 @@
 #include "Config.hpp"
 
+#include <sstream>
+
 Config::Config(string filename) : filename_(filename) {};
 
 // Debugging
@@ -101,7 +103,7 @@ pair<string, int> Config::parseListenArgument(const string &arg) const
             if (!isdigit(arg[i]))
                 break;
             if (i == arg.length() - 1)
-                return make_pair("localhost", atoi(arg.c_str()));
+                return make_pair("0.0.0.0", atoi(arg.c_str()));
         }
         return make_pair(arg, 80);
     }
@@ -110,49 +112,93 @@ pair<string, int> Config::parseListenArgument(const string &arg) const
     return make_pair(host, port);
 }
 
-pair<string, int> Config::getListenInfo(const ConfigNode &serverNode) const
+vector<pair<string, int> > Config::getAllListenInfo(const ConfigNode &serverNode) const
 {
+    vector<pair<string, int> > listenList;
+    const vector<ConfigNode> &directives = serverNode.getChildren();
+
+    for (size_t i = 0; i < directives.size(); ++i)
+    {
+        if (directives[i].getName() == "listen")
+        {
+            const vector<string> &args = directives[i].getArguments();
+
+            if (!args.empty())
+            {
+                pair<string, int> listen = parseListenArgument(args[0]);
+                listenList.push_back(listen);
+            }
+        }
+    }
+
+    if (listenList.empty())
+    {
+        listenList.push_back(make_pair("0.0.0.0", 80));
+    }
+
+    return listenList;
+}
+
+vector<string> Config::getServerNames(const ConfigNode &serverNode) const
+{
+    vector<string> serverNames;
     const vector<ConfigNode> &directives = serverNode.getChildren();
     for (size_t i = 0; i < directives.size(); ++i)
     {
-        if (directives[i].getName() == "listen" &&
-            !directives[i].getArguments().empty())
+        if (directives[i].getName() == "server_name")
         {
-            return parseListenArgument(directives[i].getArguments()[0]);
+            const vector<string> &args = directives[i].getArguments();
+            serverNames.insert(serverNames.end(), args.begin(), args.end());
         }
     }
-    return make_pair("localhost", 80);
+    return serverNames;
 }
 
 vector<ServerConfigue> Config::getServerConfigues() const
 {
-    vector<ServerConfigue> serverConfigues;
+    map<string, ServerConfigue> socketMap;
 
     vector<ConfigNode> children = ast_.getChildren();
 
-
     if (children.empty())
     {
-       ServerConfigue serverConfigue;
-       ConfigNode defaultServerNode;
-       defaultServerNode.setType(BLOCK);
-        defaultServerNode.setName("server");
-        pair<string, int> listenInfo = getListenInfo(defaultServerNode);
-        serverConfigue.setHost(listenInfo.first);
-        serverConfigue.setPort(listenInfo.second);
-        serverConfigues.push_back(serverConfigue);
-        return serverConfigues;
+        ServerConfigue defaultConfig("0.0.0.0", 80);
+        ConfigNode emptyServer;
+        emptyServer.setType(BLOCK);
+        emptyServer.setName("server");
+        defaultConfig.addServerNode(emptyServer);
+
+        vector<ServerConfigue> result;
+        result.push_back(defaultConfig);
+        return result;
     }
 
     for (size_t i = 0; i < children.size(); ++i)
     {
-        ServerConfigue serverConfigue;
-        serverConfigue.setNode(children[i]);
-        // TODO : handel multiple server blocks with the same ip:port
-        pair<string, int> listenInfo = getListenInfo(children[i]);
-        serverConfigue.setHost(listenInfo.first);
-        serverConfigue.setPort(listenInfo.second);
-        serverConfigues.push_back(serverConfigue);
+        const ConfigNode &serverNode = children[i];
+
+        vector<pair<string, int> > listens = getAllListenInfo(serverNode);
+
+        for (size_t j = 0; j < listens.size(); ++j)
+        {
+            string host = listens[j].first;
+            int port = listens[j].second;
+            ostringstream oss;
+            oss << host << ":" << port;
+            string key = oss.str();
+            if (socketMap.find(key) == socketMap.end())
+                socketMap[key] = ServerConfigue(host, port);
+            socketMap[key].addServerNode(serverNode);
+        }
     }
-    return serverConfigues;
+
+    // Converting the map to vector
+    vector<ServerConfigue> result;
+    for (map<string, ServerConfigue>::iterator it = socketMap.begin();
+         it != socketMap.end(); ++it)
+    {
+        result.push_back(it->second);
+    }
+
+    return result;
 }

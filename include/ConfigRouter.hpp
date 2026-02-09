@@ -5,6 +5,7 @@
 #include "URI.hpp"
 #include <string>
 #include <vector>
+#include <map>
 
 using namespace std;
 
@@ -13,12 +14,12 @@ struct LocationTrieNode
   string pathSegment;
   ConfigNode locationNode;
   ConfigNode serverNode;
-  vector<LocationTrieNode*> children;
+  vector<LocationTrieNode *> children;
   bool isEndOfPath;
-  
+
   LocationTrieNode()
       : pathSegment(""), isEndOfPath(false) {}
-  
+
   ~LocationTrieNode()
   {
     for (size_t i = 0; i < children.size(); i++)
@@ -29,17 +30,21 @@ struct LocationTrieNode
 class ConfigRouter
 {
 private:
-  const ServerConfigue& serverConf_;
-  LocationTrieNode* trieRoot_;
+  const ServerConfigue &serverConf_;
+  map<string, ConfigNode> serverNodeMap_;
+  LocationTrieNode *trieRoot_;
+  string serverName_;
   
+  void buildServerNodeMap();
   void buildLocationTrie();
-  void insertLocationByURI(const URI& uri, const ConfigNode& locationNode);
-  LocationTrieNode* findBestMatchByURI(const URI& uri) const;
+  void insertLocationByURI(const URI &uri, const ConfigNode &locationNode);
+  LocationTrieNode *findBestMatchByURI(const URI &uri) const;
 
 public:
+  ConfigRouter(const ServerConfigue &serverConf, const string &serverName);
   ConfigRouter(const ServerConfigue &serverConf);
   ~ConfigRouter();
-  
-  Location route(const string& path);
-  const ServerConfigue& getServerConfig() const;
+
+  Location route(const string &path);
+  const ServerConfigue &getServerConfig() const;
 };
