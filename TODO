@@ -1,5 +1,3 @@
-# TODO :
-
 #  implement the virtuale servers .......... #
 
 
@@ -18,3 +16,9 @@ ConfigueRouter(serverConfigue , server_name), if it's a reqeust that has a hostn
 so we creat the map from the multiple configNode we have in serverConfigue => soo loop over servernames for each node , get each server name put the node , check if allerdy exist in map if no add it ,
 
 in last the intraface is the same internal logic is more complex  and test
+
+// DONE , all above 
+
+# TODO :
+
+test all posible cases and senarios of a configue file .
