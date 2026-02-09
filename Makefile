@@ -1,4 +1,4 @@
-NAME = webserv
+NAME = webserv.out
 
 CXX = c++
 CXXFLAGS = -Wall -Wextra -Werror -g -std=c++98 -fsanitize=address
