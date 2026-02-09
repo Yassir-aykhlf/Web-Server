@@ -93,7 +93,7 @@ void Config::load()
     }
 }
 
-bool Config::isIPv4(const string &ip) 
+bool Config::isIPv4(const string &ip)
 {
     if (ip.empty())
         return false;
@@ -138,7 +138,7 @@ bool Config::isIPv4(const string &ip)
     return true;
 }
 
-void Config::inetAddressStr(sockaddr *addr, socklen_t addrlen, string &host, string &port) 
+void Config::inetAddressStr(sockaddr *addr, socklen_t addrlen, string &host, string &port)
 {
     stringstream addrStr;
     char _host[NI_MAXHOST], service[NI_MAXSERV];
@@ -200,7 +200,7 @@ pair<string, int> Config::parseListenArgument(const string &arg)
             if (i == arg.length() - 1)
                 return make_pair("0.0.0.0", atoi(arg.c_str()));
         }
-        if (!isIPv4(arg))    
+        if (!isIPv4(arg))
             return make_pair(getIpByHost(arg), 80);
         return make_pair(arg, 80);
     }
@@ -225,6 +225,8 @@ vector<pair<string, int> > Config::getAllListenInfo(const ConfigNode &serverNode
             if (!args.empty())
             {
                 pair<string, int> listen = parseListenArgument(args[0]);
+                if (find(listenList.begin(), listenList.end(), listen) != listenList.end())
+                    throw ConfigException("Duplicate listen directive: " + args[0]);
                 listenList.push_back(listen);
             }
         }

@@ -116,7 +116,6 @@
 //     cout << "========================================" << endl;
 // }
 
-
 int main(int argc, char **argv)
 {
     if (argc > 2)
@@ -143,15 +142,23 @@ int main(int argc, char **argv)
         for (size_t i = 0; i < serverConfs.size(); i++)
         {
 
-            ConfigRouter router(serverConfs[i],"unexisting");
+            ConfigRouter router(serverConfs[i]);
 
             cout << "IP:PORT: " << serverConfs[i].getHost() << ":" << serverConfs[i].getPort() << endl;
 
             Location location = router.route("/1");
 
             string root = location["root"];
-
+            string client_max_body_size = location["client_max_body_size"];
+            cout << "client_max_body_size : " << client_max_body_size << endl;
             cout << "Root: " << root << endl;
+            vector<string> indexFiles = location["index"];
+            for (size_t j = 0; j < indexFiles.size(); j++)
+            {
+                cout << "Index File: " << indexFiles[j] << endl;
+            }
+            
+            
         }
     }
     catch (const ConfigException &e)
@@ -166,8 +173,3 @@ int main(int argc, char **argv)
     }
     return 0;
 }
-
-// TODO :
-//  check if name i resolveable to an ip inside the parsing
-//! FIXE :
-// IP:PORT: [0:0
