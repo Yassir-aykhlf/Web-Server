@@ -1,8 +1,45 @@
 #include "ConfigRouter.hpp"
 
-ConfigRouter::ConfigRouter(const ServerConfigue &serverConf)
-    : serverConf_(serverConf), trieRoot_(NULL)
+void ConfigRouter::buildServerNodeMap()
 {
+  const vector<ConfigNode> &nodes = serverConf_.getNodes();
+  bool foundServerName = false;
+
+  for (size_t i = 0; i < nodes.size(); i++)
+  {
+    const ConfigNode &node = nodes[i];
+
+    // Get all server_names for this server
+    vector<string> serverNames = serverConf_.getServerNames(node);
+
+    // Map each server_name to this ConfigNode
+    for (size_t j = 0; j < serverNames.size(); j++)
+    {
+      const string &name = serverNames[j];
+      if (name == serverName_)
+        foundServerName = true;
+      // Only add if not already exists (first one wins)
+      if (serverNodeMap_.find(name) == serverNodeMap_.end())
+      {
+        serverNodeMap_[name] = node;
+      }
+    }
+  }
+  if (!foundServerName && !serverNodeMap_.empty())
+    serverName_ = serverNodeMap_.begin()->first;
+}
+
+ConfigRouter::ConfigRouter(const ServerConfigue &serverConf, const string &serverName)
+    : serverConf_(serverConf), trieRoot_(NULL), serverName_(serverName)
+{
+  buildServerNodeMap();
+  buildLocationTrie();
+}
+
+ConfigRouter::ConfigRouter(const ServerConfigue &serverConf)
+    : serverConf_(serverConf), trieRoot_(NULL), serverName_("")
+{
+  buildServerNodeMap();
   buildLocationTrie();
 }
 
@@ -11,7 +48,7 @@ ConfigRouter::~ConfigRouter()
   delete trieRoot_;
 }
 
-const ServerConfigue& ConfigRouter::getServerConfig() const
+const ServerConfigue &ConfigRouter::getServerConfig() const
 {
   return serverConf_;
 }
@@ -20,18 +57,18 @@ void ConfigRouter::buildLocationTrie()
 {
   // Create root node
   trieRoot_ = new LocationTrieNode();
-  trieRoot_->serverNode = serverConf_.getNode();
-  
+  trieRoot_->serverNode = serverNodeMap_[serverName_];
+
   // Get all children of server node
-  const ConfigNode& serverNode = serverConf_.getNode();
-  const vector<ConfigNode>& children = serverNode.getChildren();
-  
+  const ConfigNode &serverNode = serverNodeMap_[serverName_];
+  const vector<ConfigNode> &children = serverNode.getChildren();
+
   // Find all location blocks and insert them
   for (size_t i = 0; i < children.size(); i++)
   {
     if (children[i].getName() == "location")
     {
-      const vector<string>& args = children[i].getArguments();
+      const vector<string> &args = children[i].getArguments();
       if (!args.empty())
       {
         // Use URI to parse the location path
@@ -42,31 +79,31 @@ void ConfigRouter::buildLocationTrie()
   }
 }
 
-void ConfigRouter::insertLocationByURI(const URI& uri, const ConfigNode& locationNode)
+void ConfigRouter::insertLocationByURI(const URI &uri, const ConfigNode &locationNode)
 {
   // Special case: location /
   if (uri.isRoot())
   {
     trieRoot_->isEndOfPath = true;
     trieRoot_->locationNode = locationNode;
-    trieRoot_->serverNode = serverConf_.getNode();
+    trieRoot_->serverNode = serverNodeMap_[serverName_];
     return;
   }
-  
+
   // Get segments from URI (already parsed and split)
-  const vector<string>& segments = uri.getSegments();
-  
+  const vector<string> &segments = uri.getSegments();
+
   // Start from root and traverse/create nodes
-  LocationTrieNode* current = trieRoot_;
-  
+  LocationTrieNode *current = trieRoot_;
+
   for (size_t i = 0; i < segments.size(); i++)
   {
-    const string& seg = segments[i];
+    const string &seg = segments[i];
 
-    cout << "Inserting segment: " << seg << endl;
-    
+    // cout << "Inserting segment: " << seg << endl;
+
     // Look for existing child with this segment
-    LocationTrieNode* child = NULL;
+    LocationTrieNode *child = NULL;
     for (size_t j = 0; j < current->children.size(); j++)
     {
       if (current->children[j]->pathSegment == seg)
@@ -75,31 +112,31 @@ void ConfigRouter::insertLocationByURI(const URI& uri, const ConfigNode& locatio
         break;
       }
     }
-    
+
     // If not found, create new child
     if (!child)
     {
       child = new LocationTrieNode();
       child->pathSegment = seg;
-      child->serverNode = serverConf_.getNode();
+      child->serverNode = serverNodeMap_[serverName_];
       child->isEndOfPath = false;
       current->children.push_back(child);
     }
-    
+
     current = child;
   }
-  
+
   // Mark the final node as end of location path
   current->isEndOfPath = true;
   current->locationNode = locationNode;
-  current->serverNode = serverConf_.getNode();
+  current->serverNode = serverNodeMap_[serverName_];
 }
 
-LocationTrieNode* ConfigRouter::findBestMatchByURI(const URI& uri) const
+LocationTrieNode *ConfigRouter::findBestMatchByURI(const URI &uri) const
 {
   if (!trieRoot_)
     return NULL;
-  
+
   // Handle root path
   if (uri.isRoot())
   {
@@ -107,25 +144,25 @@ LocationTrieNode* ConfigRouter::findBestMatchByURI(const URI& uri) const
       return trieRoot_;
     return NULL;
   }
-  
+
   // Get segments from URI
-  const vector<string>& segments = uri.getSegments();
-  
+  const vector<string> &segments = uri.getSegments();
+
   // Traverse trie and track last match (longest prefix)
-  LocationTrieNode* current = trieRoot_;
-  LocationTrieNode* lastMatch = NULL;
-  
+  LocationTrieNode *current = trieRoot_;
+  LocationTrieNode *lastMatch = NULL;
+
   // Check if root is a match
   if (current->isEndOfPath)
     lastMatch = current;
-  
+
   // Walk through segments
   for (size_t i = 0; i < segments.size(); i++)
   {
-    const string& seg = segments[i];
-    
+    const string &seg = segments[i];
+
     // Find child with this segment
-    LocationTrieNode* child = NULL;
+    LocationTrieNode *child = NULL;
     for (size_t j = 0; j < current->children.size(); j++)
     {
       if (current->children[j]->pathSegment == seg)
@@ -134,46 +171,56 @@ LocationTrieNode* ConfigRouter::findBestMatchByURI(const URI& uri) const
         break;
       }
     }
-    
+
     // No child found, stop here
     if (!child)
       break;
-    
+
     current = child;
-    
+
     // If this node is end of a location, remember it (longest prefix match)
     if (current->isEndOfPath)
       lastMatch = current;
   }
-  
+
   return lastMatch;
 }
 
-Location ConfigRouter::route(const string& path)
+Location ConfigRouter::route(const string &path)
 {
   // Parse URI from path string
   URI uri(path);
-  
+
   // Normalize the path (removes .., ., and more :) )
   string normalizedPath = uri.getNormalizedPath();
-  
+
   // Create URI from normalized path for matching
   URI normalizedURI(normalizedPath);
-  
+
   // Find best matching location using normalized URI
-  LocationTrieNode* match = findBestMatchByURI(normalizedURI);
-  
+  LocationTrieNode *match = findBestMatchByURI(normalizedURI);
+
   // If match found, create Location from it
   if (match && match->isEndOfPath)
-    return Location(match->locationNode, serverConf_.getNode());
-  
+    return Location(match->locationNode, serverNodeMap_[serverName_]);
+
   // No match found - return empty Location
-  return Location(ConfigNode(), serverConf_.getNode());
+  return Location(ConfigNode(), serverNodeMap_[serverName_]);
 }
 
+// TODO :
+//  2 - implement the virtuale servers ..........
 
-//TODO :
-// 0 - understand how routing works 
-// 1 - Fix the location class check the defaults and how it's go back to the server
-// 2 - implement the virtuale servers
-// 3 - merge with main and test
+// TODO :
+
+// creat a location based on server_name + server_configue
+// soo :
+// first get all ip:port from all servers , for each ip:port creat a list of server nodes
+// serverConfigue is/has multiple server block that have that ip:port pair => soo search on all the servers that has the same ip:port in the listen block , store them in a list
+
+// in router , loop over all the server_names , each name has his confNode (server),
+//  should be a map<string, confNode>, to map the node based on servername
+//  ConfigueRouter(serverConfigue , server_name), if it's a reqeust that has a hostname ,
+//  so we creat the map from the multiple configNode we have in serverConfigue => soo loop over servernames for each node , get each server name put the node , check if allerdy exist in map if no add it ,
+
+// in last the intraface is the same internal logic is more complex
