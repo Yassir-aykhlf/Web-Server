@@ -41,6 +41,7 @@ private:
     size_t _chunkBytesRead;
     size_t _maxBodySize;
     int _errorCode;
+    std::string _errorMessage;
     bool parseRequestLine();
     bool parseHeaders();
     bool parseBody();
