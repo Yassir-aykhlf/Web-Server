@@ -7,7 +7,7 @@ and dispatches events (POLLIN/POLLOUT) to the appropriate read/write handlers.
 
 #include "EventLoop.hpp"
 
-EventLoop::EventLoop() : _config(NULL), _running(false), _n_fds(0) {}
+EventLoop::EventLoop() : _config(NULL), _running(false), _n_fds(0), _pollfds({}), _clients({}) {}
 
 EventLoop::~EventLoop() {}
 
@@ -32,13 +32,25 @@ void EventLoop::run() {
     _running = true;
     Logger::info("EventLoop started");
 
-    const ServerConfig& serverConfig = _config->getServers()[0];
-    int fd_socket = serverConfig.getFdSocket();
+    const std::vector<ServerConfigue>& serverConfig = _config->getServerConfigues();
+    vector<int> fd_sockets;
     // Main event loop
     // memset(_pollfds, 0, sizeof(_pollfds));
-    _pollfds[0].fd = fd_socket;
-    _pollfds[0].events = POLLIN;
-    _n_fds = 1;
+    for (size_t i = 0; i < serverConfig.size(); ++i) {
+        int fd_socket = serverConfig[i].getSocketFD();
+        if (fd_socket < 0) {
+            Logger::error("Invalid socket fd for server on " + serverConfig[i].getHost() + ":" + intToString(serverConfig[i].getPort()));
+            return;
+        }
+        fd_sockets.push_back(fd_socket);
+        struct pollfd pfd;
+        pfd.fd = fd_socket;
+        pfd.events = POLLIN;
+        _pollfds.push_back(pfd);
+        _clients[fd_socket] = NULL; // Mark listener fds with NULL client
+        _n_fds++;
+    }
+
     // Polling loop
     //serverConfig.getListenFds();
     while (_running) {
@@ -46,7 +58,9 @@ void EventLoop::run() {
         // int poll_count = poll(_pollfds, _n_fds, -1);
         if (poll_count < 0) {
             Logger::error("Poll error");
-            close(fd_socket);
+            for (size_t i = 0; i < fd_sockets.size(); ++i) {
+                close(fd_sockets[i]);
+            }
             return;
         }
 

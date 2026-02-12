@@ -2,6 +2,10 @@
 #define WEBSERV_HPP
 
 #include "Config.hpp"
+#include "Server.hpp"
+#include "EventLoop.hpp"
+#include "HttpRequest.hpp"
+#include "HttpResponse.hpp"
 
 #include <sys/socket.h>
 #include <netinet/in.h>

@@ -1,64 +1,20 @@
-// #include "Server.hpp"
-// #include "Logger.hpp"
+#include "Server.hpp"
+#include "Logger.hpp"
 
-// Server::Server() : _running(false) {}
+Server::Server(Config *config) : _running(false), _config(config) {}
 
-// Server::~Server() {
-//     cleanup();
-// }
+Server::~Server() {
+    cleanup();
+}
 
-// void Server::handleSignal(int sig) {
-//     if (_instance) {
-//         if (sig == SIGINT || sig == SIGTERM) {
-//             Logger::info("Received signal " + intToString(sig) + ", shutting down...");
-//             _instance->stop();
-//         }
-//     }
-// }
-
-
-// bool Server::init(const std::string& configFile) {
-//     signal(SIGINT, handleSignal);
-//     signal(SIGTERM, handleSignal);
-//     _instance = this;
-//     Logger::info("Loading configuration from: " + configFile);
-//     if (!_config.load(configFile)) {
-//         Logger::error("Failed to load configuration");
-//         return false;
-//     }
-//     // _eventLoop.setConfig(&_config);
-//     if (!setupListeners()) {
-//         Logger::error("Failed to set up listerners");
-//         cleanup();
-//         return false;
-//     }
-//     _running = true;
-//     return true;
-// }
-
-// void Server::run() {
-//     if (!_running) {
-//         Logger::error("Server not initialized");
-//         return ;
-//     }
-//     Logger::info("Server starting...");
-//     // _eventLoop.run();
-//     cleanup();
-// }
-
-// void Server::stop() {
-//     Logger::info("Server stopping...");
-//     _running = false;
-//     // _eventLoop.stop();
-// }
-
-// bool Server::setupListeners() {
-//     // TODO: Socket stuff;
-// }
-
-// void Server::cleanup() {
-//     // close sockets;
-// }
+void Server::handleSignal(int sig) {
+    if (_instance) {
+        if (sig == SIGINT || sig == SIGTERM) {
+            Logger::info("Received signal " + intToString(sig) + ", shutting down...");
+            _instance->stop();
+        }
+    }
+}
 
 void non_blockingServer(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
@@ -79,18 +35,16 @@ void Server::handleSignal(int sig) {
 }
 // _config.getHost(), _config.getPort(), config.getFdSocket()
 
-
-bool Server::init(const std::string& configFile) {
+bool Server::init() {
     signal(SIGINT, handleSignal);
     signal(SIGTERM, handleSignal);
     _instance = this;
-    Logger::info("Loading configuration from: " + configFile);
-    _config = Config();
-    if (!_config.load(configFile)) {
-        Logger::error("Failed to load configuration");
-        return false;
-    }
-    // _eventLoop.setConfig(&_config);
+    // Logger::info("Loading configuration from: " + configFile);
+    // _config = Config();
+    // if (!_config.load(configFile)) {
+    //     Logger::error("Failed to load configuration");
+    //     return false;
+    // }
 
     // create server sockets
     if (this->setupServerSockets() == false)
@@ -108,10 +62,9 @@ bool Server::init(const std::string& configFile) {
     if (this->setupListeners() == false)
         return false;
 
-    _eventLoop = new EventLoop();
-    _eventLoop->setConfig(&_config);
+    _eventLoop = EventLoop();
+    _eventLoop.setConfig(_config);
 
-    Logger::info("Server listening on " + _config.getServers()[0].getHost() + ":" + intToString(_config.getServers()[0].getPort()) + " (fd: " + intToString(_config.getServers()[0].getFdSocket()) + ")");
     // if (!setupListeners()) {
     //     Logger::error("Failed to set up listerners");
     //     cleanup();
@@ -127,64 +80,52 @@ void Server::run() {
         return ;
     }
     Logger::info("Server starting...");
-    _eventLoop->run();
+    _eventLoop.run();
     cleanup();
 }
 
 void Server::stop() {
     Logger::info("Server stopping...");
     _running = false;
-    _eventLoop->stop();
+    _eventLoop.stop();
 }
 
 bool Server::setupListeners() {
-    for (size_t i = 0; i < _config.getServers().size(); ++i) {
-        const ServerConfig& serverConfig = _config.getServers()[i];
-        int fd_socket = serverConfig.getFdSocket();
+    vector<ServerConfigue> servers = _config->getServerConfigues();
+    for (size_t i = 0; i < servers.size(); ++i) {
+        const ServerConfigue& serverConfig = servers[i];
+        int fd_socket = serverConfig.getSocketFD();
         if (listen(fd_socket, SOMAXCONN) < 0) {
             Logger::error("Failed to listen on socket for server on " + serverConfig.getHost() + ":" + intToString(serverConfig.getPort()));
             close(fd_socket);
             return false;
         }
-        // Just run only one server now
-        return true;
     }
     return true;
 }
 
 bool Server::setupServerSockets() {
     // Create the server socket based on configuration
-    const std::vector<ServerConfig>& servers = _config.getServers();
+    vector<ServerConfigue> servers = _config->getServerConfigues();
     for (size_t i = 0; i < servers.size(); ++i) {
-        const ServerConfig& serverConfig = servers[i];
+        const ServerConfigue& serverConfig = servers[i];
         int fd_socket = socket(AF_INET, SOCK_STREAM, 0);
         if (fd_socket < 0) {
             Logger::error("Failed to create socket for server " + intToString(i));
             return false;
         }
         // Store the socket fd in the server config
-        const_cast<ServerConfig&>(serverConfig).setFdSocket(fd_socket);
-        // const std::string& host = serverConfig.getHost();
-        // int port = serverConfig.getPort();
-        // TODO: just run only one server now
-        return true;
+        const_cast<ServerConfigue&>(serverConfig).setSocketFD(fd_socket);
     }
-    // const std::string& host = _config.getHost();
-    // int port = _config.getPort();
-    // int fd_socket = socket(AF_INET, SOCK_STREAM, 0);
-    // if (fd_socket < 0) {
-    //     Logger::error("Failed to create socket");
-    //     return false;
-    // }
-    // _config.setFdSocket(fd_socket);
     return true;
 }
 
 bool Server::setOptions()
 {
-    for (size_t i = 0; i < _config.getServers().size(); ++i) {
-        const ServerConfig& serverConfig = _config.getServers()[i];
-        int fd_socket = serverConfig.getFdSocket();
+    vector<ServerConfigue> servers = _config->getServerConfigues();
+    for (size_t i = 0; i < servers.size(); ++i) {
+        const ServerConfigue& serverConfig = servers[i];
+        int fd_socket = serverConfig.getSocketFD();
         non_blockingServer(fd_socket);
         // Reuse address option
         int opt = 1;
@@ -193,17 +134,16 @@ bool Server::setOptions()
             close(fd_socket);
             return false;
         }
-        // TODO: Just run only one server now
-        return true;
     }
     return true;
 }
 
 bool Server::bindSocket()
 {
-    for (size_t i = 0; i < _config.getServers().size(); ++i) {
-        const ServerConfig& serverConfig = _config.getServers()[i];
-        int fd_socket = serverConfig.getFdSocket();
+    vector<ServerConfigue> servers = _config->getServerConfigues();
+    for (size_t i = 0; i < servers.size(); ++i) {
+        const ServerConfigue& serverConfig = servers[i];
+        int fd_socket = serverConfig.getSocketFD();
         const std::string& host = serverConfig.getHost();
         int port = serverConfig.getPort();
 
@@ -217,23 +157,20 @@ bool Server::bindSocket()
             close(fd_socket);
             return false;
         }
-        // TODO: Just run only one server now
-        return true;
     }
     return true;
 }
 
 void Server::cleanup() {
     // close sockets;
-    for (size_t i = 0; i < _config.getServers().size(); ++i) {
-        const ServerConfig& serverConfig = _config.getServers()[i];
-        int fd_socket = serverConfig.getFdSocket();
+    vector<ServerConfigue> servers = _config->getServerConfigues();
+    for (size_t i = 0; i < servers.size(); ++i) {
+        const ServerConfigue& serverConfig = servers[i];
+        int fd_socket = serverConfig.getSocketFD();
         if (fd_socket >= 0) {
             close(fd_socket);
             Logger::info("Closed server socket (fd: " + intToString(fd_socket) + ")");
-            const_cast<ServerConfig&>(serverConfig).setFdSocket(-1);
+            const_cast<ServerConfigue&>(serverConfig).setSocketFD(-1);
         }
-        // TODO: Just run only one server now
-        return ;
     }
 }

@@ -1,26 +1,23 @@
-// #ifndef SERVER_HPP
-// #define SERVER_HPP
+#ifndef SERVER_HPP
+#define SERVER_HPP
 
-
-// #include "webserv.hpp"
-// #include "Config.hpp"
 
 #include "webserv.hpp"
 #include "Config.hpp"
 #include "EventLoop.hpp"
 
-// class Server {
-// public:
-//     Server();
-//     ~Server();
+class Server {
+public:
+    Server(Config *config);
+    ~Server();
 
-//     bool init(const std::string& configFile);
-//     void run();
-//     void stop();
+    bool init();
+    void run();
+    void stop();
 
 
-//     static Server* _instance;
-//     static void handleSignal(int sig);
+    static Server* _instance;
+    static void handleSignal(int sig);
 
 
 
@@ -29,14 +26,14 @@
     bool    bindSocket();
 
 
-// private:
-//     Config _config;
-//     // EventLoop _eventLoop;
-//     // std::vector<int> _listenFds;
-//     bool _running;
+private:
+    Config *_config;
+    EventLoop _eventLoop;
+    std::vector<int> _listenFds;
+    bool _running;
 
-//     bool setupListeners();
-//     void cleanup();
-// };
+    bool setupListeners();
+    void cleanup();
+};
 
-// #endif
+#endif

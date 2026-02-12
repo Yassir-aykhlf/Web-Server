@@ -160,6 +160,11 @@ int main(int argc, char **argv)
             
             
         }
+
+        // run server
+        Server server(&config);
+        server.init();
+        server.run();
     }
     catch (const ConfigException &e)
     {
