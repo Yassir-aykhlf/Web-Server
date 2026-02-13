@@ -36,6 +36,7 @@ void EventLoop::run() {
     vector<int> fd_sockets;
     // Main event loop
     // memset(_pollfds, 0, sizeof(_pollfds));
+    std::set<int> _listenSockets;
     for (size_t i = 0; i < serverConfig.size(); ++i) {
         int fd_socket = serverConfig[i].getSocketFD();
         if (fd_socket < 0) {
@@ -43,10 +44,11 @@ void EventLoop::run() {
             return;
         }
         fd_sockets.push_back(fd_socket);
+        _listenSockets.insert(fd_socket);
         struct pollfd pfd;
         pfd.fd = fd_socket;
         pfd.events = POLLIN;
-        _pollfds.push_back(pfd);
+        _pollfds[_n_fds] = pfd;
         _clients[fd_socket] = NULL; // Mark listener fds with NULL client
         _n_fds++;
     }
@@ -58,31 +60,33 @@ void EventLoop::run() {
         // int poll_count = poll(_pollfds, _n_fds, -1);
         if (poll_count < 0) {
             Logger::error("Poll error");
-            for (size_t i = 0; i < fd_sockets.size(); ++i) {
-                close(fd_sockets[i]);
-            }
+            cleanup();
             return;
         }
 
-        // Check for new connections
-        if (_pollfds[0].revents & POLLIN) {
-            struct sockaddr_in client_addr;
-            socklen_t client_len = sizeof(client_addr);
-            int client_fd = accept(fd_socket, (struct sockaddr*)&client_addr, &client_len);
-            if (client_fd < 0) {
-                Logger::error("Failed to accept connection");
-                continue;
-            }
-            Logger::info("Accepted connection from " + std::string(inet_ntoa(client_addr.sin_addr)) + ":" + intToString(ntohs(client_addr.sin_port)) + " (fd: " + intToString(client_fd) + ")");
-            non_blocking(client_fd);
-            _pollfds[_n_fds].fd = client_fd;
-            _pollfds[_n_fds].events = POLLIN;
-            _clients[client_fd] = new Client(client_fd);
-            _n_fds++;
-        }
-
         // Check existing connections for data
-        for (int i = 1; i < _n_fds; i++) {
+        for (int i = 0; i < _n_fds; i++) {
+            // Check if this fd is a listener or a client
+            if (_listenSockets.count(_pollfds[i].fd) > 0) {
+                        // Check for new connections
+                if (_pollfds[i].revents & POLLIN) {
+                    struct sockaddr_in client_addr;
+                    socklen_t client_len = sizeof(client_addr);
+                    int client_fd = accept(_pollfds[i].fd, (struct sockaddr*)&client_addr, &client_len);
+                    if (client_fd < 0) {
+                        Logger::error("Failed to accept connection");
+                        continue;
+                    }
+                    Logger::info("Accepted connection from " + std::string(inet_ntoa(client_addr.sin_addr)) + ":" + intToString(ntohs(client_addr.sin_port)) + " (fd: " + intToString(client_fd) + ")");
+                    non_blocking(client_fd);
+                    _pollfds[_n_fds].fd = client_fd;
+                    _pollfds[_n_fds].events = POLLIN;
+                    _clients[client_fd] = new Client(client_fd);
+                    _n_fds++;
+                }
+                continue; // Skip listener fds
+            }
+            // Handle client events
             if (_pollfds[i].revents & POLLIN) {
                 char buffer[1024];
                 ssize_t bytes_read = recv(_pollfds[i].fd, buffer, sizeof(buffer), 0);
