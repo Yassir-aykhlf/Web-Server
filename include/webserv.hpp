@@ -87,5 +87,6 @@ std::vector<std::string> split(const std::string& str, char delimiter);
 std::string urlDecode(const std::string& str);
 std::string normalizePath(const std::string& path);
 std::string trim(const std::string& str);
+std::string getFileExtension(const std::string& path);
 
 #endif // WEBSERV_HPP

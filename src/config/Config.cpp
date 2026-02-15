@@ -142,7 +142,7 @@ void Config::inetAddressStr(sockaddr *addr, socklen_t addrlen, string &host, str
 {
     stringstream addrStr;
     char _host[NI_MAXHOST], service[NI_MAXSERV];
-    int errorNumber = 0;
+    // int errorNumber = 0;
 
     if (getnameinfo(addr, addrlen, _host, NI_MAXHOST, service,
                     NI_MAXSERV, NI_NUMERICHOST) == 0)
@@ -150,8 +150,8 @@ void Config::inetAddressStr(sockaddr *addr, socklen_t addrlen, string &host, str
         host = _host;
         port = service;
     }
-    else
-        errorNumber = 1;
+    // else
+        // errorNumber = 1;
 }
 
 string Config::getIpByHost(const string &host)

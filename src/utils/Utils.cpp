@@ -108,3 +108,10 @@ std::string trim(const std::string& str) {
     size_t end = str.find_last_not_of(" \t\r\n");
     return str.substr(start, end - start + 1);
 }
+
+std::string getFileExtension(const std::string& path) {
+    size_t pos = path.rfind('.');
+    if (pos == std::string::npos || pos == path.length() - 1)
+        return "";
+    return path.substr(pos);
+}
