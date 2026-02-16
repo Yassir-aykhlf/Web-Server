@@ -88,5 +88,7 @@ std::string urlDecode(const std::string& str);
 std::string normalizePath(const std::string& path);
 std::string trim(const std::string& str);
 std::string getFileExtension(const std::string& path);
+std::string getCurrentTime();
+std::string longToString(long value);
 
 #endif // WEBSERV_HPP

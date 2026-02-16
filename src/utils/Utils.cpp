@@ -115,3 +115,17 @@ std::string getFileExtension(const std::string& path) {
         return "";
     return path.substr(pos);
 }
+
+std::string getCurrentTime() {
+    time_t now = time(NULL);
+    struct tm* tm_info = gmtime(&now);
+    char buffer[128];
+    strftime(buffer, sizeof(buffer), "%a, %d %b %Y %H: %M:%S GMT", tm_info);
+    return std::string(buffer);
+}
+
+std::string longToString(long value) {
+    std::ostringstream oss;
+    oss << value;
+    return oss.str();
+}
