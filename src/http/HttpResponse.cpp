@@ -61,13 +61,53 @@ void HttpResponse::clear() {
 }
 
 std::string HttpResponse::build() const {
-    // TODO: build status line, headers, and body into a complete HTTP response string
+    std::ostringstream response;
+    response << HTTP_VERSION << " " << _statusCode << " " << getStatusText(_statusCode) << "\r\n";
+    
+    // for (const auto& header : _headers) {  
+    for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it) {
+        response << it->first << ": " << it->second << "\r\n";
+    }
+    if (_headers.find("Content-Length") == _headers.end()) {
+        response << "Content-Length: " << _body.length() << "\r\n";
+    }
+    response << "\r\n";
+    response << _body;
+    return response.str();
 }
 
 HttpResponse HttpResponse::makeError(int code, const std::string& message) {
-    // TODO: create a simple error response with the given status code and message
+    HttpResponse response;
+    response.setStatus(code);
+    response.setContentType("text/html");
+    std::string body =  "<!DOCTYPE html>\n"
+                        "<html>\n"
+                        "<head><title>" + intToString(code) + " " + getStatusText(code) + "</title></head>\n"
+                        "<body>\n"
+                        "<center><h1>" + intToString(code) + " " + getStatusText(code) + "</h1></center>\n";
+    if (!message.empty()) {
+        body += "<center><p>" + message + "</p></center>\n";
+    }
+    body += "<hr><center>" SERVER_NAME "</center>\n"
+            "</body>\n"
+            "</html>\n";
+    response.setBody(body);
+    return response;
 }
 
 HttpResponse HttpResponse::makeRedirect(int code, const std::string& url) {
-    // TODO: create a simple redirect response with the given status code and URL
+    HttpResponse response;
+    response.setStatus(code);
+    response.setLocation(url);
+    response.setContentType("text/html");
+    std::string body =  "<!DOCTYPE html>\n"
+                        "<html>\n"
+                        "<head><title>" + intToString(code) + " " + getStatusText(code) + "</title></head>\n"
+                        "<body>\n"
+                        "<center><h1>" + intToString(code) + " " + getStatusText(code) + "</h1></center>\n"
+                        "<center><p>Redirecting to <a href=\"" + url + "\">" + url + "</a></p></center>\n"
+                        "</body>\n"
+                        "</html>\n";
+    response.setBody(body);
+    return response;    
 }

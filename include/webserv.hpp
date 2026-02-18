@@ -90,5 +90,6 @@ std::string trim(const std::string& str);
 std::string getFileExtension(const std::string& path);
 std::string getCurrentTime();
 std::string longToString(long value);
+std::string getStatusText(int statusCode);
 
 #endif // WEBSERV_HPP
