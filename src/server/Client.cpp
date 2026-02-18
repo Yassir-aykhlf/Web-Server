@@ -7,6 +7,7 @@ and tracks active CGI processes for that client.
 */
 
 #include "Client.hpp"
+#include <sstream>
 
 Client::Client(int fd) : _fd(fd),  _requestBuffer(""), _responseBuffer(""), _sendOffset(0) {
     _state = READING;

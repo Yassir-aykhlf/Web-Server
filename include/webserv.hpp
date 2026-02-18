@@ -2,8 +2,9 @@
 #define WEBSERV_HPP
 
 #include "Config.hpp"
-#include "Server.hpp"
 #include "EventLoop.hpp"
+#include "Server.hpp"
+
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
 

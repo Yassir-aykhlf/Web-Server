@@ -1,11 +1,13 @@
 #ifndef EVENTLOOP_HPP
 #define EVENTLOOP_HPP
 
-#include "webserv.hpp"
+#include <vector>
+#include <map>
+#include <poll.h>
 #include "Config.hpp"
-#include "Server.hpp"
-#include "Client.hpp"
 #include "Logger.hpp"
+
+class Client;
 
 class EventLoop {
     public:

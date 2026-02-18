@@ -6,22 +6,22 @@ and dispatches events (POLLIN/POLLOUT) to the appropriate read/write handlers.
 */
 
 #include "EventLoop.hpp"
+#include "Client.hpp"
+#include "webserv.hpp"
+#include <unistd.h>
+#include <fcntl.h>
+#include <cstring>
+#include <cstdio>
+#include <cstdlib>
 
-EventLoop::EventLoop() : _config(NULL), _running(false), _n_fds(0), _pollfds({}), _clients({}) {}
+EventLoop::EventLoop() : _config(NULL), _running(false), _n_fds(0) {
+    // _pollfds and _clients are default constructed
+}
 
 EventLoop::~EventLoop() {}
 
 void EventLoop::setConfig(Config* config) {
     _config = config;
-}
-
-void non_blocking(int fd) {
-    int flags = fcntl(fd, F_GETFL, 0);
-    int result = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-    if (result == -1) {
-        perror("Error setting non-blocking mode");
-        exit(EXIT_FAILURE);
-    }
 }
 
 void EventLoop::run() {
@@ -48,7 +48,8 @@ void EventLoop::run() {
         struct pollfd pfd;
         pfd.fd = fd_socket;
         pfd.events = POLLIN;
-        _pollfds[_n_fds] = pfd;
+        pfd.revents = 0;
+        _pollfds.push_back(pfd); // Use push_back for empty vector
         _clients[fd_socket] = NULL; // Mark listener fds with NULL client
         _n_fds++;
     }
@@ -56,7 +57,7 @@ void EventLoop::run() {
     // Polling loop
     //serverConfig.getListenFds();
     while (_running) {
-        int poll_count = poll(_pollfds.data(), _pollfds.size(), -1);
+        int poll_count = poll(&_pollfds[0], _pollfds.size(), -1);
         // int poll_count = poll(_pollfds, _n_fds, -1);
         if (poll_count < 0) {
             Logger::error("Poll error");
@@ -79,8 +80,13 @@ void EventLoop::run() {
                     }
                     Logger::info("Accepted connection from " + std::string(inet_ntoa(client_addr.sin_addr)) + ":" + intToString(ntohs(client_addr.sin_port)) + " (fd: " + intToString(client_fd) + ")");
                     non_blocking(client_fd);
-                    _pollfds[_n_fds].fd = client_fd;
-                    _pollfds[_n_fds].events = POLLIN;
+                    
+                    struct pollfd client_pfd;
+                    client_pfd.fd = client_fd;
+                    client_pfd.events = POLLIN;
+                    client_pfd.revents = 0;
+                    _pollfds.push_back(client_pfd);
+                    
                     _clients[client_fd] = new Client(client_fd);
                     _n_fds++;
                 }
@@ -95,7 +101,9 @@ void EventLoop::run() {
                     delete _clients[_pollfds[i].fd];
                     _clients.erase(_pollfds[i].fd);
                     close(_pollfds[i].fd);
-                    _pollfds[i] = _pollfds[_n_fds - 1];
+                    
+                    _pollfds[i] = _pollfds.back();
+                    _pollfds.pop_back();
                     _n_fds--;
                     i--;
                 } else {

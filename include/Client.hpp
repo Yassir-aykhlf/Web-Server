@@ -1,6 +1,8 @@
 #ifndef CLIENT_HPP
 #define CLIENT_HPP
-#include "EventLoop.hpp"
+
+#include <string>
+#include <unistd.h>
 
 enum ClientState {
     READING,

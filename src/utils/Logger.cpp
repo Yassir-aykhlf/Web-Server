@@ -1,22 +1,37 @@
-// #include "Logger.hpp"
+#include "Logger.hpp"
+#include <iostream>
 
-// Logger::Logger() {}
+// Use a static member variable for the log level
+// Default log level
+Logger::Level currentLevel = Logger::INFO; // Assuming a global or static member approach, but Logger has static methods.
 
-// void Logger::setLevel(Level level) {
-//     _level = level;
-// }
+void Logger::setLevel(Level level) {
+    currentLevel = level;
+}
 
-// void Logger::debug(const std::string& message) {
-//     if (_level <= DEBUG) {
-//         log(DEBUG, message);
-//     }
-// }
+void Logger::debug(const std::string& message) {
+    if (currentLevel <= DEBUG) {
+        std::cout << "[DEBUG] " << message << std::endl;
+    }
+}
 
-// void Logger::info(const std::string& message) {
-//     if (_level <= INFO) {
-//         log(INFO, message);
-//     }
-// }
+void Logger::info(const std::string& message) {
+    if (currentLevel <= INFO) {
+        std::cout << "[INFO] " << message << std::endl;
+    }
+}
+
+void Logger::warning(const std::string& message) {
+    if (currentLevel <= WARNING) {
+        std::cerr << "[WARNING] " << message << std::endl;
+    }
+}
+
+void Logger::error(const std::string& message) {
+    if (currentLevel <= ERROR) {
+        std::cerr << "[ERROR] " << message << std::endl;
+    }
+}
 
 // void Logger::warning(const std::string& message) {
 //     if (_level <= WARNING) {

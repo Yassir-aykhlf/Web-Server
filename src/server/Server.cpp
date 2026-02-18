@@ -1,22 +1,16 @@
 #include "Server.hpp"
 #include "Logger.hpp"
 
-Server::Server(Config *config) : _running(false), _config(config) {}
+Server* Server::_instance = NULL;
+
+Server::Server(Config *config) : _config(config), _running(false) {}
 
 Server::~Server() {
     cleanup();
 }
 
-void Server::handleSignal(int sig) {
-    if (_instance) {
-        if (sig == SIGINT || sig == SIGTERM) {
-            Logger::info("Received signal " + intToString(sig) + ", shutting down...");
-            _instance->stop();
-        }
-    }
-}
-
 void non_blockingServer(int fd) {
+    std::cout << "Setting non-blocking mode for fd: " << fd << std::endl;
     int flags = fcntl(fd, F_GETFL, 0);
     int result = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
     if (result == -1) {
@@ -116,6 +110,8 @@ bool Server::setupServerSockets() {
         }
         // Store the socket fd in the server config
         const_cast<ServerConfigue&>(serverConfig).setSocketFD(fd_socket);
+        Logger::info("Created socket (fd: " + intToString(fd_socket) + ") for server on " + serverConfig.getHost() + ":" + intToString(serverConfig.getPort()));
+        Logger::info("Server socket (fd: " + intToString(serverConfig.getSocketFD()) + ") created successfully for server on " + serverConfig.getHost() + ":" + intToString(serverConfig.getPort()));
     }
     return true;
 }
