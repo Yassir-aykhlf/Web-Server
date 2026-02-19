@@ -112,9 +112,9 @@ pair<string, int> Config::parseListenArgument(const string &arg) const
     return make_pair(host, port);
 }
 
-vector<pair<string, int> > Config::getAllListenInfo(const ConfigNode &serverNode) const
+vector<pair<string, int>> Config::getAllListenInfo(const ConfigNode &serverNode) const
 {
-    vector<pair<string, int> > listenList;
+    vector<pair<string, int>> listenList;
     const vector<ConfigNode> &directives = serverNode.getChildren();
 
     for (size_t i = 0; i < directives.size(); ++i)
@@ -154,7 +154,7 @@ vector<string> Config::getServerNames(const ConfigNode &serverNode) const
     return serverNames;
 }
 
-vector<ServerConfigue> Config::getServerConfigues() const
+vector<ServerConfigue &> Config::getServerConfigues()
 {
     map<string, ServerConfigue> socketMap;
 
@@ -168,7 +168,7 @@ vector<ServerConfigue> Config::getServerConfigues() const
         emptyServer.setName("server");
         defaultConfig.addServerNode(emptyServer);
 
-        vector<ServerConfigue> result;
+        vector<ServerConfigue &> result;
         result.push_back(defaultConfig);
         return result;
     }
@@ -177,7 +177,7 @@ vector<ServerConfigue> Config::getServerConfigues() const
     {
         const ConfigNode &serverNode = children[i];
 
-        vector<pair<string, int> > listens = getAllListenInfo(serverNode);
+        vector<pair<string, int>> listens = getAllListenInfo(serverNode);
 
         for (size_t j = 0; j < listens.size(); ++j)
         {
@@ -193,7 +193,7 @@ vector<ServerConfigue> Config::getServerConfigues() const
     }
 
     // Converting the map to vector
-    vector<ServerConfigue> result;
+    vector<ServerConfigue &> result;
     for (map<string, ServerConfigue>::iterator it = socketMap.begin();
          it != socketMap.end(); ++it)
     {

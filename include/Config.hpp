@@ -29,12 +29,12 @@ public:
   Config(const string filename);
   void load();
 
-  const ConfigNode &getAST()  { return ast_; };
+  const ConfigNode &getAST() { return ast_; };
 
   pair<string, int> parseListenArgument(const string &arg) const;
-  vector<pair<string, int> > getAllListenInfo(const ConfigNode &serverNode) const;
+  vector<pair<string, int>> getAllListenInfo(const ConfigNode &serverNode) const;
   vector<string> getServerNames(const ConfigNode &serverNode) const;
-  vector<ServerConfigue> getServerConfigues() const;
+  vector<ServerConfigue &> getServerConfigues();
 
   // Debugging
   void printAST(const ConfigNode &node, int indent) const;
