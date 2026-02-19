@@ -134,7 +134,7 @@ int main(int argc, char **argv)
         Config config(configFile);
         config.load();
 
-        // config.printAST(); //? print the AST for debugging
+        config.printAST(); //? print the AST for debugging
 
         // cout << "ip : " << getIpByHost("localhost") << endl;
 
@@ -159,15 +159,6 @@ int main(int argc, char **argv)
         //     }
 
         // }
-
-        // test
-        // int fd = 10;
-        // vector<ServerConfigue> &serverConfig1 = config.getServerConfigues();
-        // serverConfig1[0].setSocketFD(fd);
-        // cout << "Server socket fd set to: " << serverConfig1[0].getSocketFD() << endl;
-
-        // vector<ServerConfigue> &serverConfig2 = config.getServerConfigues();
-        // cout << "Server socket fd is: " << serverConfig2[0].getSocketFD() << endl;
 
         // run server
         Server server(&config);

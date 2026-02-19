@@ -142,7 +142,7 @@ bool Server::bindSocket()
         int fd_socket = serverConfig.getSocketFD();
         const std::string& host = serverConfig.getHost();
         int port = serverConfig.getPort();
-
+        
         struct sockaddr_in server_addr;
         memset(&server_addr, 0, sizeof(server_addr));
         server_addr.sin_family = AF_INET;
@@ -153,6 +153,7 @@ bool Server::bindSocket()
             close(fd_socket);
             return false;
         }
+        Logger::info("Socket (fd: " + intToString(fd_socket) + ") bound to " + host + ":" + intToString(port) + " successfully");
     }
     return true;
 }
