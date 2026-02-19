@@ -85,7 +85,7 @@ void Server::stop() {
 }
 
 bool Server::setupListeners() {
-    vector<ServerConfigue> servers = _config->getServerConfigues();
+    vector<ServerConfigue>& servers = _config->getServerConfigues();
     for (size_t i = 0; i < servers.size(); ++i) {
         const ServerConfigue& serverConfig = servers[i];
         int fd_socket = serverConfig.getSocketFD();
@@ -100,7 +100,7 @@ bool Server::setupListeners() {
 
 bool Server::setupServerSockets() {
     // Create the server socket based on configuration
-    vector<ServerConfigue> servers = _config->getServerConfigues();
+    vector<ServerConfigue>& servers = _config->getServerConfigues();
     for (size_t i = 0; i < servers.size(); ++i) {
         const ServerConfigue& serverConfig = servers[i];
         int fd_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -118,7 +118,7 @@ bool Server::setupServerSockets() {
 
 bool Server::setOptions()
 {
-    vector<ServerConfigue> servers = _config->getServerConfigues();
+    vector<ServerConfigue>& servers = _config->getServerConfigues();
     for (size_t i = 0; i < servers.size(); ++i) {
         const ServerConfigue& serverConfig = servers[i];
         int fd_socket = serverConfig.getSocketFD();
@@ -136,7 +136,7 @@ bool Server::setOptions()
 
 bool Server::bindSocket()
 {
-    vector<ServerConfigue> servers = _config->getServerConfigues();
+    vector<ServerConfigue>& servers = _config->getServerConfigues();
     for (size_t i = 0; i < servers.size(); ++i) {
         const ServerConfigue& serverConfig = servers[i];
         int fd_socket = serverConfig.getSocketFD();
@@ -159,7 +159,7 @@ bool Server::bindSocket()
 
 void Server::cleanup() {
     // close sockets;
-    vector<ServerConfigue> servers = _config->getServerConfigues();
+    vector<ServerConfigue>& servers = _config->getServerConfigues();
     for (size_t i = 0; i < servers.size(); ++i) {
         const ServerConfigue& serverConfig = servers[i];
         int fd_socket = serverConfig.getSocketFD();

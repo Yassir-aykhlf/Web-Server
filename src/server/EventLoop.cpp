@@ -32,7 +32,7 @@ void EventLoop::run() {
     _running = true;
     Logger::info("EventLoop started");
 
-    std::vector<ServerConfigue> serverConfig = _config->getServerConfigues();
+    std::vector<ServerConfigue>& serverConfig = _config->getServerConfigues();
     vector<int> fd_sockets;
     // Main event loop
     // memset(_pollfds, 0, sizeof(_pollfds));
