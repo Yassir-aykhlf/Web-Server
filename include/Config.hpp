@@ -38,7 +38,7 @@ public:
   pair<string, int> parseListenArgument(const string &arg) ;
   vector<pair<string, int> > getAllListenInfo(const ConfigNode &serverNode) ;
   vector<string> getServerNames(const ConfigNode &serverNode) ;
-  vector<ServerConfigue> getServerConfigues() ;
+  vector<ServerConfigue&> getServerConfigues() ;
 
   // Debugging
   void printAST(const ConfigNode &node, int indent) const;

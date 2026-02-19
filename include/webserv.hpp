@@ -57,12 +57,12 @@ class   CgiHandler;
 #define SERVER_NAME "webserv/1.0"
 #define HTTP_VERSION "HTTP/1.1"
 
-enum HttpMethod {
-    METHOD_GET,
-    METHOD_POST,
-    METHOD_DELETE,
-    METHOD_UNKNOWN
-};
+// enum HttpMethod {
+//     METHOD_GET,
+//     METHOD_POST,
+//     METHOD_DELETE,
+//     METHOD_UNKNOWN
+// };
 
 enum HttpStatus {
     STATUS_OK = 200,
@@ -95,5 +95,6 @@ std::vector<std::string> split(const std::string& str, char delimiter);
 std::string urlDecode(const std::string& str);
 std::string normalizePath(const std::string& path);
 std::string trim(const std::string& str);
+void non_blocking(int fd);
 
 #endif // WEBSERV_HPP

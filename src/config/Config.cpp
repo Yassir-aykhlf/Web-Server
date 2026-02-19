@@ -255,7 +255,7 @@ vector<string> Config::getServerNames(const ConfigNode &serverNode)
     return serverNames;
 }
 
-vector<ServerConfigue> Config::getServerConfigues()
+vector<ServerConfigue&> Config::getServerConfigues()
 {
     map<string, ServerConfigue> socketMap;
 
@@ -269,7 +269,7 @@ vector<ServerConfigue> Config::getServerConfigues()
         emptyServer.setName("server");
         defaultConfig.addServerNode(emptyServer);
 
-        vector<ServerConfigue> result;
+        vector<ServerConfigue&> result;
         result.push_back(defaultConfig);
         return result;
     }
@@ -294,7 +294,7 @@ vector<ServerConfigue> Config::getServerConfigues()
     }
 
     // Converting the map to vector
-    vector<ServerConfigue> result;
+    vector<ServerConfigue&> result;
     for (map<string, ServerConfigue>::iterator it = socketMap.begin();
          it != socketMap.end(); ++it)
     {
