@@ -138,28 +138,36 @@ int main(int argc, char **argv)
 
         // cout << "ip : " << getIpByHost("localhost") << endl;
 
-        vector<ServerConfigue> serverConfs = config.getServerConfigues();
-        for (size_t i = 0; i < serverConfs.size(); i++)
-        {
+        // vector<ServerConfigue&> serverConfs = config.getServerConfigues();
+        // for (size_t i = 0; i < serverConfs.size(); i++)
+        // {
 
-            ConfigRouter router(serverConfs[i]);
+        //     ConfigRouter router(serverConfs[i]);
 
-            cout << "IP:PORT: " << serverConfs[i].getHost() << ":" << serverConfs[i].getPort() << endl;
+        //     cout << "IP:PORT: " << serverConfs[i].getHost() << ":" << serverConfs[i].getPort() << endl;
 
-            Location location = router.route("/1");
+        //     Location location = router.route("/1");
 
-            string root = location["root"];
-            string client_max_body_size = location["client_max_body_size"];
-            cout << "client_max_body_size : " << client_max_body_size << endl;
-            cout << "Root: " << root << endl;
-            vector<string> indexFiles = location["index"];
-            for (size_t j = 0; j < indexFiles.size(); j++)
-            {
-                cout << "Index File: " << indexFiles[j] << endl;
-            }
-            
-            
-        }
+        //     string root = location["root"];
+        //     string client_max_body_size = location["client_max_body_size"];
+        //     cout << "client_max_body_size : " << client_max_body_size << endl;
+        //     cout << "Root: " << root << endl;
+        //     vector<string> indexFiles = location["index"];
+        //     for (size_t j = 0; j < indexFiles.size(); j++)
+        //     {
+        //         cout << "Index File: " << indexFiles[j] << endl;
+        //     }
+
+        // }
+
+        // test
+        int fd = 10;
+        vector<ServerConfigue> &serverConfig1 = config.getServerConfigues();
+        serverConfig1[0].setSocketFD(fd);
+        cout << "Server socket fd set to: " << serverConfig1[0].getSocketFD() << endl;
+
+        vector<ServerConfigue> &serverConfig2 = config.getServerConfigues();
+        cout << "Server socket fd is: " << serverConfig2[0].getSocketFD() << endl;
 
         // run server
         Server server(&config);

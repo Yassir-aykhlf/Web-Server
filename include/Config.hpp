@@ -24,6 +24,7 @@ class Config
 private:
   ConfigNode ast_;
   string filename_;
+  vector<ServerConfigue> ServerConfigues_;
 
 public:
   Config(const string filename);
@@ -38,7 +39,8 @@ public:
   pair<string, int> parseListenArgument(const string &arg) ;
   vector<pair<string, int> > getAllListenInfo(const ConfigNode &serverNode) ;
   vector<string> getServerNames(const ConfigNode &serverNode) ;
-  vector<ServerConfigue&> getServerConfigues() ;
+  vector<ServerConfigue>& getServerConfigues();
+  void setServerConfigues();
 
   // Debugging
   void printAST(const ConfigNode &node, int indent) const;

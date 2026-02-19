@@ -82,6 +82,8 @@ void Config::load()
 
         ConfigValidator validator;
         validator.validate(ast_);
+
+        setServerConfigues();
     }
     catch (const ParseException &e)
     {
@@ -213,7 +215,7 @@ pair<string, int> Config::parseListenArgument(const string &arg)
 
 vector<pair<string, int> > Config::getAllListenInfo(const ConfigNode &serverNode)
 {
-    vector<pair<string, int> > listenList;
+    vector<pair<string, int>  > listenList;
     const vector<ConfigNode> &directives = serverNode.getChildren();
 
     for (size_t i = 0; i < directives.size(); ++i)
@@ -255,7 +257,12 @@ vector<string> Config::getServerNames(const ConfigNode &serverNode)
     return serverNames;
 }
 
-vector<ServerConfigue&> Config::getServerConfigues()
+vector<ServerConfigue>& Config::getServerConfigues()
+{
+    return ServerConfigues_;
+}
+
+void Config::setServerConfigues()
 {
     map<string, ServerConfigue> socketMap;
 
@@ -269,9 +276,11 @@ vector<ServerConfigue&> Config::getServerConfigues()
         emptyServer.setName("server");
         defaultConfig.addServerNode(emptyServer);
 
-        vector<ServerConfigue&> result;
+        vector<ServerConfigue> result;
         result.push_back(defaultConfig);
-        return result;
+
+        ServerConfigues_ = result;
+        return;
     }
 
     for (size_t i = 0; i < children.size(); ++i)
@@ -294,12 +303,12 @@ vector<ServerConfigue&> Config::getServerConfigues()
     }
 
     // Converting the map to vector
-    vector<ServerConfigue&> result;
+    vector<ServerConfigue> result;
     for (map<string, ServerConfigue>::iterator it = socketMap.begin();
          it != socketMap.end(); ++it)
     {
         result.push_back(it->second);
     }
 
-    return result;
+    ServerConfigues_ = result;
 }
