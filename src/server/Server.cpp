@@ -98,20 +98,56 @@ bool Server::setupListeners() {
     return true;
 }
 
-bool Server::setupServerSockets() {
-    // Create the server socket based on configuration
-    vector<ServerConfigue>& servers = _config->getServerConfigues();
-    for (size_t i = 0; i < servers.size(); ++i) {
-        const ServerConfigue& serverConfig = servers[i];
-        int fd_socket = socket(AF_INET, SOCK_STREAM, 0);
-        if (fd_socket < 0) {
+// bool Server::setupServerSockets() {
+//     // Create the server socket based on configuration
+//     vector<ServerConfigue>& servers = _config->getServerConfigues();
+//     for (size_t i = 0; i < servers.size(); ++i) {
+//         const ServerConfigue& serverConfig = servers[i];
+//         int fd_socket = socket(AF_INET, SOCK_STREAM, 0);
+//         if (fd_socket < 0) {
+//             Logger::error("Failed to create socket for server " + intToString(i));
+//             return false;
+//         }
+//         // Store the socket fd in the server config
+//         const_cast<ServerConfigue&>(serverConfig).setSocketFD(fd_socket);
+//         Logger::info("Created socket (fd: " + intToString(fd_socket) + ") for server on " + serverConfig.getHost() + ":" + intToString(serverConfig.getPort()));
+//         Logger::info("Server socket (fd: " + intToString(serverConfig.getSocketFD()) + ") created successfully for server on " + serverConfig.getHost() + ":" + intToString(serverConfig.getPort()));
+//     }
+//     return true;
+// }
+
+bool Server::setupServerSockets()
+{
+    vector<ServerConfigue> &servers = _config->getServerConfigues();
+    for (size_t i = 0; i < servers.size(); ++i)
+    {
+        ServerConfigue &serverConfig = servers[i];
+        const std::string &host = serverConfig.getHost();
+        int port = serverConfig.getPort();
+
+        struct addrinfo hints, *result = NULL;
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_UNSPEC;
+        hints.ai_socktype = SOCK_STREAM;
+
+        std::string portStr = intToString(port);
+        if (getaddrinfo(host.c_str(), portStr.c_str(), &hints, &result) != 0 || result == NULL)
+        {
+            Logger::error("Failed to resolve address: " + host);
+            return false;
+        }
+
+        int fd_socket = socket(result->ai_family, SOCK_STREAM, 0); // AF_INET or AF_INET6 automatically
+        freeaddrinfo(result);
+
+        if (fd_socket < 0)
+        {
             Logger::error("Failed to create socket for server " + intToString(i));
             return false;
         }
-        // Store the socket fd in the server config
-        const_cast<ServerConfigue&>(serverConfig).setSocketFD(fd_socket);
-        Logger::info("Created socket (fd: " + intToString(fd_socket) + ") for server on " + serverConfig.getHost() + ":" + intToString(serverConfig.getPort()));
-        Logger::info("Server socket (fd: " + intToString(serverConfig.getSocketFD()) + ") created successfully for server on " + serverConfig.getHost() + ":" + intToString(serverConfig.getPort()));
+
+        serverConfig.setSocketFD(fd_socket); // no need for const_cast anymore
+        Logger::info("Created socket (fd: " + intToString(fd_socket) + ") for server on " + host + ":" + portStr);
     }
     return true;
 }
@@ -134,26 +170,70 @@ bool Server::setOptions()
     return true;
 }
 
+// bool Server::bindSocket()
+// {
+//     vector<ServerConfigue>& servers = _config->getServerConfigues();
+//     for (size_t i = 0; i < servers.size(); ++i) {
+//         const ServerConfigue& serverConfig = servers[i];
+//         int fd_socket = serverConfig.getSocketFD();
+//         const std::string& host = serverConfig.getHost();
+//         int port = serverConfig.getPort();
+        
+//         struct sockaddr_in server_addr;
+//         memset(&server_addr, 0, sizeof(server_addr));
+//         server_addr.sin_family = AF_INET;
+//         server_addr.sin_addr.s_addr = inet_addr(host.c_str()); // Convert IP address string to binary
+//         server_addr.sin_port = htons(port);
+//         if (bind(fd_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+//             Logger::error("Failed to bind socket to " + host + ":" + intToString(port));
+//             close(fd_socket);
+//             return false;
+//         }
+//         Logger::info("Socket (fd: " + intToString(fd_socket) + ") bound to " + host + ":" + intToString(port) + " successfully");
+//     }
+//     return true;
+// }
+#include <net/if.h>
 bool Server::bindSocket()
 {
-    vector<ServerConfigue>& servers = _config->getServerConfigues();
-    for (size_t i = 0; i < servers.size(); ++i) {
-        const ServerConfigue& serverConfig = servers[i];
+    vector<ServerConfigue> &servers = _config->getServerConfigues();
+    for (size_t i = 0; i < servers.size(); ++i)
+    {
+        ServerConfigue &serverConfig = servers[i];
         int fd_socket = serverConfig.getSocketFD();
-        const std::string& host = serverConfig.getHost();
+        const std::string &host = serverConfig.getHost();
         int port = serverConfig.getPort();
-        
-        struct sockaddr_in server_addr;
-        memset(&server_addr, 0, sizeof(server_addr));
-        server_addr.sin_family = AF_INET;
-        server_addr.sin_addr.s_addr = inet_addr(host.c_str()); // Convert IP address string to binary
-        server_addr.sin_port = htons(port);
-        if (bind(fd_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-            Logger::error("Failed to bind socket to " + host + ":" + intToString(port));
+
+        struct addrinfo hints, *result = NULL;
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_UNSPEC;
+        hints.ai_socktype = SOCK_STREAM;
+
+        std::string portStr = intToString(port);
+        if (getaddrinfo(host.c_str(), portStr.c_str(), &hints, &result) != 0 || result == NULL)
+        {
+            Logger::error("Failed to resolve address: " + host);
             close(fd_socket);
             return false;
         }
-        Logger::info("Socket (fd: " + intToString(fd_socket) + ") bound to " + host + ":" + intToString(port) + " successfully");
+
+        // For link-local IPv6 addresses, set the scope_id manually
+        if (result->ai_family == AF_INET6)
+        {
+            struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)result->ai_addr;
+            if (addr6->sin6_scope_id == 0)
+                addr6->sin6_scope_id = if_nametoindex("enp0s31f6");
+        }
+
+        if (bind(fd_socket, result->ai_addr, result->ai_addrlen) < 0)
+        {
+            Logger::error("Failed to bind socket to " + host + ":" + portStr);
+            freeaddrinfo(result);
+            close(fd_socket);
+            return false;
+        }
+        freeaddrinfo(result);
+        Logger::info("Socket (fd: " + intToString(fd_socket) + ") bound to " + host + ":" + portStr + " successfully");
     }
     return true;
 }
