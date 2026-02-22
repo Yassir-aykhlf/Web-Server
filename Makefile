@@ -1,4 +1,4 @@
-NAME = webserv.out
+NAME = webserv
 
 CXX = c++
 CXXFLAGS = -Wall -Wextra -Werror -g -std=c++98 -fsanitize=address
@@ -15,7 +15,7 @@ SRCS = $(SRCDIR)/main.cpp \
        $(SRCDIR)/config/Location.cpp \
        $(SRCDIR)/config/ConfigValidator.cpp \
        $(SRCDIR)/config/ConfigNode.cpp \
-       $(SRCDIR)/config/ServerConfigue.cpp\
+       $(SRCDIR)/config/ServerConfig.cpp\
        $(SRCDIR)/server/Server.cpp \
        $(SRCDIR)/server/Socket.cpp \
        $(SRCDIR)/server/Client.cpp \
@@ -53,4 +53,7 @@ fclean: clean
 
 re: fclean all
 
-.PHONY: all clean fclean re
+test: all
+	@bash tests/run_tests.sh
+
+.PHONY: all clean fclean re test

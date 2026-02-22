@@ -1,4 +1,5 @@
 #include "URI.hpp"
+using namespace std;
 
 URI::URI(const string& uri)
 {

@@ -18,8 +18,8 @@ struct DirectiveRule
   size_t minParams;
   size_t maxParams;
   bool allowsChildren;
-  vector<string> allowedContexts;
-  bool (*paramValidator)(const vector<string> &);
+  std::vector<std::string> allowedContexts;
+  bool (*paramValidator)(const std::vector<std::string> &);
 
   DirectiveRule()
       : minParams(0),
@@ -31,8 +31,8 @@ struct DirectiveRule
       size_t minP,
       size_t maxP,
       bool allowsCh,
-      const vector<string> &contexts,
-      bool (*validator)(const vector<string> &))
+      const std::vector<std::string> &contexts,
+      bool (*validator)(const std::vector<std::string> &))
       : minParams(minP),
         maxParams(maxP),
         allowsChildren(allowsCh),
@@ -45,48 +45,46 @@ struct DirectiveRule
 class ConfigValidator
 {
 private:
-  map<string, DirectiveRule> rules_;
+  std::map<std::string, DirectiveRule> rules_;
 
-  // Parameter validation functions;
-  static bool isValidHostname(const string &hostname);
-  static bool isValidIPv4(const string &ip);
-  static bool isValidIPv6(const string &ip);
-  static bool isValidLocationPath(const string &path);
-  static bool isValidPort(const string &port);
-  static bool validateListen(const vector<string> &params);
-  static bool validatePath(const vector<string> &params);
-  static bool validateMethod(const vector<string> &params);
-  static bool validateBoolean(const vector<string> &params);
-  static bool validateSize(const vector<string> &params);
-  static bool validateServerName(const vector<string> &params);
-  static bool validateIndex(const vector<string> &params);
-  static bool isValidErrorPagePath(const string &path);
-  static bool validateErrorPage(const vector<string> &params);
-  static bool validateReturn(const vector<string> &params);
-  static bool validateCgiExt(const vector<string> &params);
-  static bool isReturnUrl(const string &value);
-  static bool isValidReturnCode(const string &value);
+  // Parameter validation functions
+  static bool isValidHostname(const std::string &hostname);
+  static bool isValidIPv4(const std::string &ip);
+  static bool isValidIPv6(const std::string &ip);
+  static bool isValidLocationPath(const std::string &path);
+  static bool isValidPort(const std::string &port);
+  static bool validateListen(const std::vector<std::string> &params);
+  static bool validatePath(const std::vector<std::string> &params);
+  static bool validateMethod(const std::vector<std::string> &params);
+  static bool validateBoolean(const std::vector<std::string> &params);
+  static bool validateSize(const std::vector<std::string> &params);
+  static bool validateServerName(const std::vector<std::string> &params);
+  static bool validateIndex(const std::vector<std::string> &params);
+  static bool isValidErrorPagePath(const std::string &path);
+  static bool validateErrorPage(const std::vector<std::string> &params);
+  static bool validateReturn(const std::vector<std::string> &params);
+  static bool validateCgiExt(const std::vector<std::string> &params);
+  static bool isReturnUrl(const std::string &value);
+  static bool isValidReturnCode(const std::string &value);
   static bool isRedirectCode(int code);
-  static bool validateUploadStore(const vector<string> &params);
-  static bool validateTimeout(const vector<string> &params);
-  static bool noValidation(const vector<string> &params);
-  static bool validateLocation(const vector<string> &params);
-  static bool validateInternal(const vector<string> &params);
-  static bool isAbsolutePath(const string &path);
-  static bool isValidFilesystemPath(const string &path);
-  static bool validateCgiPath(const vector<string> &params);
+  static bool validateUploadStore(const std::vector<std::string> &params);
+  static bool validateTimeout(const std::vector<std::string> &params);
+  static bool noValidation(const std::vector<std::string> &params);
+  static bool validateLocation(const std::vector<std::string> &params);
+  static bool validateInternal(const std::vector<std::string> &params);
+  static bool isAbsolutePath(const std::string &path);
+  static bool isValidFilesystemPath(const std::string &path);
+  static bool validateCgiPath(const std::vector<std::string> &params);
 
   // Validation helpers
-  void validateNode(const ConfigNode &node, const string &context);
+  void validateNode(const ConfigNode &node, const std::string &context);
   bool isAllowedInContext(
-      const string &directive, const string &context);
+      const std::string &directive, const std::string &context);
 
-  // Initialize rules
   void initializeRules();
 
 public:
   ConfigValidator();
 
-  // Main validation method
   void validate(const ConfigNode &root);
 };

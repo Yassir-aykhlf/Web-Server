@@ -1,5 +1,4 @@
-#ifndef CONFIG_HPP
-#define CONFIG_HPP
+#pragma once
 
 #include <iostream>
 #include <sstream>
@@ -13,36 +12,34 @@
 #include "ConfigParser.hpp"
 #include "ConfigExceptions.hpp"
 #include "ConfigValidator.hpp"
-#include "ServerConfigue.hpp"
+#include "ServerConfig.hpp"
 #include "ConfigRouter.hpp"
 #include "URI.hpp"
-
-using namespace std;
 
 class Config
 {
 private:
   ConfigNode ast_;
-  string filename_;
+  std::string filename_;
+  std::vector<ServerConfig> ServerConfigs_;
 
 public:
-  Config(const string filename);
+  Config(const std::string filename);
   void load();
 
   const ConfigNode &getAST() { return ast_; };
 
-  bool isIPv4(const string &ip);
-  void inetAddressStr(sockaddr *addr, socklen_t addrlen, string &host, string &port);
-  string getIpByHost(const string &host) ;
-  // Parse a listen argument and return the corresponding (ip, port) pair
-  pair<string, int> parseListenArgument(const string &arg) ;
-  vector<pair<string, int> > getAllListenInfo(const ConfigNode &serverNode) ;
-  vector<string> getServerNames(const ConfigNode &serverNode) ;
-  vector<ServerConfigue> getServerConfigues() ;
+  bool isIPv4(const std::string &ip);
+  void inetAddressStr(sockaddr *addr, socklen_t addrlen, std::string &host, std::string &port);
+  std::string getIpByHost(const std::string &host) ;
+  std::pair<std::string, int> parseListenArgument(const std::string &arg) ;
+  std::vector<std::pair<std::string, int> > getAllListenInfo(const ConfigNode &serverNode) ;
+  std::vector<std::string> getServerNames(const ConfigNode &serverNode) ;
+  std::vector<ServerConfig>& getServerConfigs();
+  void setServerConfigs();
 
   // Debugging
   void printAST(const ConfigNode &node, int indent) const;
   void printAST(void) const;
 };
 
-#endif

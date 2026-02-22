@@ -50,7 +50,7 @@ void HttpRequest::appendBody(const std::string& chunk) {
 }
 
 void HttpRequest::setHeader(const std::string& key, const std::string& value) {
-    _headers[toLower(key) = value];
+    _headers[toLower(key)] = value;
 }
 
 std::string HttpRequest::getHeader(const std::string& name) const {

@@ -1,7 +1,13 @@
-#ifndef HTTPREQUEST_HPP
-#define HTTPREQUEST_HPP
+#pragma once
 
 #include "webserv.hpp"
+
+enum HttpMethod {
+    METHOD_GET,
+    METHOD_POST,
+    METHOD_DELETE,
+    METHOD_UNKNOWN
+};
 
 class HttpRequest {
 private:
@@ -47,4 +53,3 @@ public:
     void    clear();
 };
 
-#endif

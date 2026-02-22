@@ -1,5 +1,4 @@
-#ifndef MIMETYPES_HPP
-#define MIMETYPES_HPP
+#pragma once
 
 #include "webserv.hpp"
 
@@ -15,4 +14,3 @@ private:
     static bool _initialized;
 };
 
-#endif

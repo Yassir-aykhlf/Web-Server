@@ -1,7 +1,11 @@
-#ifndef WEBSERV_HPP
-#define WEBSERV_HPP
+#pragma once
 
 #include "Config.hpp"
+#include "EventLoop.hpp"
+#include "Server.hpp"
+
+#include "HttpRequest.hpp"
+#include "HttpResponse.hpp"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -29,10 +33,10 @@
 #include <set>
 #include <new>
 
-
 class   Server;
 class   Client;
-class   EvenLoop;
+class   Config;
+class   EventLoop;
 class   HttpRequest;
 class   HttpResponse;
 class   HttpParser;
@@ -48,13 +52,6 @@ class   CgiHandler;
 #define DEFAULT_TIMEOUT 60
 #define SERVER_NAME "webserv/1.0"
 #define HTTP_VERSION "HTTP/1.1"
-
-enum HttpMethod {
-    METHOD_GET,
-    METHOD_POST,
-    METHOD_DELETE,
-    METHOD_UNKNOWN
-};
 
 enum HttpStatus {
     STATUS_OK = 200,
@@ -81,15 +78,15 @@ enum HttpStatus {
 
 std::string toLower(const std::string& str);
 std::string intToString(int value);
+std::string longToString(long value);
 int         stringToInt(const std::string& str);
 std::string toUpper(const std::string& str);
 std::vector<std::string> split(const std::string& str, char delimiter);
 std::string urlDecode(const std::string& str);
 std::string normalizePath(const std::string& path);
 std::string trim(const std::string& str);
-std::string getFileExtension(const std::string& path);
 std::string getCurrentTime();
-std::string longToString(long value);
-std::string getStatusText(int statusCode);
+std::string getStatusText(int code);
+std::string getFileExtension(const std::string& filename);
+void non_blocking(int fd);
 
-#endif // WEBSERV_HPP

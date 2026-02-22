@@ -1,5 +1,4 @@
-#ifndef HTTPRESPONSE_HPP
-#define HTTPRESPONSE_HPP
+#pragma once
 
 #include "webserv.hpp"
 
@@ -37,4 +36,3 @@ private:
     std::string _body;
 };
 
-#endif

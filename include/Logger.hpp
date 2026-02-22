@@ -1,7 +1,7 @@
-#ifndef LOGGER_HPP
-#define LOGGER_HPP
+#pragma once
 
-#include "webserv.hpp"
+#include <string>
+#include <iostream>
 
 class Logger {
 public:
@@ -24,4 +24,3 @@ private:
     static std::string getLevelString(Level level);
 };
 
-#endif

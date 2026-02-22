@@ -1,20 +1,18 @@
 #pragma once
 #include "ConfigNode.hpp"
-#include "ServerConfigue.hpp"
+#include "ServerConfig.hpp"
 #include "Location.hpp"
 #include "URI.hpp"
 #include <string>
 #include <vector>
 #include <map>
 
-using namespace std;
-
 struct LocationTrieNode
 {
-  string pathSegment;
+  std::string pathSegment;
   ConfigNode locationNode;
   ConfigNode serverNode;
-  vector<LocationTrieNode *> children;
+  std::vector<LocationTrieNode *> children;
   bool isEndOfPath;
 
   LocationTrieNode()
@@ -30,10 +28,10 @@ struct LocationTrieNode
 class ConfigRouter
 {
 private:
-  const ServerConfigue &serverConf_;
-  map<string, ConfigNode> serverNodeMap_;
+  const ServerConfig &serverConf_;
+  std::map<std::string, ConfigNode> serverNodeMap_;
   LocationTrieNode *trieRoot_;
-  string serverName_;
+  std::string serverName_;
   
   void buildServerNodeMap();
   void buildLocationTrie();
@@ -41,10 +39,10 @@ private:
   LocationTrieNode *findBestMatchByURI(const URI &uri) const;
 
 public:
-  ConfigRouter(const ServerConfigue &serverConf, const string &serverName);
-  ConfigRouter(const ServerConfigue &serverConf);
+  ConfigRouter(const ServerConfig &serverConf, const std::string &serverName);
+  ConfigRouter(const ServerConfig &serverConf);
   ~ConfigRouter();
 
-  Location route(const string &path);
-  const ServerConfigue &getServerConfig() const;
+  Location route(const std::string &path);
+  const ServerConfig &getServerConfig() const;
 };

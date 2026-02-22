@@ -1,4 +1,5 @@
 #include "ConfigParser.hpp"
+using namespace std;
 
 ConfigParser::ConfigParser() {}
 
@@ -21,7 +22,7 @@ void ConfigParser::openFile(const string &filename)
         throw FileException("Cannot open file : " + filename);
 }
 
-// first creat all tokenaziton helpers
+// Tokenization helpers
 
 char ConfigParser::peekChar()
 {

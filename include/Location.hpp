@@ -1,26 +1,23 @@
 #pragma once
 #include <string>
 #include "ConfigNode.hpp"
-#include <iostream>
 #include <vector>
-using namespace std;
 
-// Forward declare Location
 class Location;
 
 class ConfigValue
 {
 private:
-  string key_;
+  std::string key_;
   const Location *location_;
 
 public:
-  ConfigValue(const string &key, const Location *loc);
-  operator string() const;
+  ConfigValue(const std::string &key, const Location *loc);
+  operator std::string() const;
   operator bool() const;
-  operator vector<string>() const;
-  operator pair<vector<int>, string>() const;
-  operator pair<int, string>() const;
+  operator std::vector<std::string>() const;
+  operator std::pair<std::vector<int>, std::string>() const;
+  operator std::pair<int, std::string>() const;
 };
 
 class Location
@@ -29,22 +26,23 @@ private:
   ConfigNode serverNode_;
   ConfigNode location_;
 
-  const ConfigNode *findDirective(const ConfigNode &node, const string &key) const;
-  const vector<string> *getArguments(const string &key) const;
-  string getDefaultString(const string &key) const;
-  bool getDefaultBool(const string &key) const;
-  vector<string> getDefaultList(const string &key) const;
+  const ConfigNode *findDirective(const ConfigNode &node, const std::string &key) const;
+  const std::vector<std::string> *getArguments(const std::string &key) const;
+  std::string getDefaultString(const std::string &key) const;
+  bool getDefaultBool(const std::string &key) const;
+  std::vector<std::string> getDefaultList(const std::string &key) const;
 
 public:
   Location();
   Location &operator=(const Location &other);
   Location(const ConfigNode &loc, const ConfigNode &server);
 
-  string getStringValue(const string &key) const;
-  bool getBoolValue(const string &key) const;
-  vector<string> getListValue(const string &key) const;
-  pair<vector<int>, string> getPairValue(const string &key) const;
-  pair<int, string> getPairVal(const string &key) const;
-  ConfigValue operator[](const string &key) const;
+  std::string getStringValue(const std::string &key) const;
+  bool getBoolValue(const std::string &key) const;
+  std::vector<std::string> getListValue(const std::string &key) const;
+  std::pair<std::vector<int>, std::string> getPairValue(const std::string &key) const;
+  std::pair<int, std::string> getPairVal(const std::string &key) const;
+  std::string findErrorPagePath(int statusCode) const;
+  ConfigValue operator[](const std::string &key) const;
 };
 

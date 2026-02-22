@@ -1,7 +1,6 @@
 #include "ConfigNode.hpp"
+using namespace std;
 
-
-// Constructor
 ConfigNode::ConfigNode(NodeType type, const string &name)
     : type_(type), name_(name) {}
 

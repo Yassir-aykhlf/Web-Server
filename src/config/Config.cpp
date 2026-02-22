@@ -1,19 +1,17 @@
 #include "Config.hpp"
 
 #include <sstream>
+using namespace std;
 
 Config::Config(string filename) : filename_(filename) {};
 
-// Debugging
-// ─── ANSI Colors ──────────────────────────────────
+// ANSI color codes for printAST() debug output
 #define COLOR_RESET "\033[0m"
-#define COLOR_CYAN "\033[36m"   // Simple directives (listen, root, method...)
-#define COLOR_RED "\033[31m"    // Block directives (http, server, location)
-#define COLOR_GREEN "\033[32m"  // Values / parameters
-#define COLOR_GRAY "\033[90m"   // Braces { } and semicolons ;
-#define COLOR_YELLOW "\033[33m" // Location path (first arg of location)
-
-// ───────────────────────────────────────────────────
+#define COLOR_CYAN "\033[36m"
+#define COLOR_RED "\033[31m"
+#define COLOR_GREEN "\033[32m"
+#define COLOR_GRAY "\033[90m"
+#define COLOR_YELLOW "\033[33m"
 
 void Config::printAST(const ConfigNode &node, int indent) const
 {
@@ -82,6 +80,8 @@ void Config::load()
 
         ConfigValidator validator;
         validator.validate(ast_);
+
+        setServerConfigs();
     }
     catch (const ParseException &e)
     {
@@ -142,16 +142,12 @@ void Config::inetAddressStr(sockaddr *addr, socklen_t addrlen, string &host, str
 {
     stringstream addrStr;
     char _host[NI_MAXHOST], service[NI_MAXSERV];
-    // int errorNumber = 0;
-
     if (getnameinfo(addr, addrlen, _host, NI_MAXHOST, service,
                     NI_MAXSERV, NI_NUMERICHOST) == 0)
     {
         host = _host;
         port = service;
     }
-    // else
-        // errorNumber = 1;
 }
 
 string Config::getIpByHost(const string &host)
@@ -213,7 +209,7 @@ pair<string, int> Config::parseListenArgument(const string &arg)
 
 vector<pair<string, int> > Config::getAllListenInfo(const ConfigNode &serverNode)
 {
-    vector<pair<string, int> > listenList;
+    vector<pair<string, int>  > listenList;
     const vector<ConfigNode> &directives = serverNode.getChildren();
 
     for (size_t i = 0; i < directives.size(); ++i)
@@ -255,23 +251,30 @@ vector<string> Config::getServerNames(const ConfigNode &serverNode)
     return serverNames;
 }
 
-vector<ServerConfigue> Config::getServerConfigues()
+vector<ServerConfig>& Config::getServerConfigs()
 {
-    map<string, ServerConfigue> socketMap;
+    return ServerConfigs_;
+}
+
+void Config::setServerConfigs()
+{
+    map<string, ServerConfig> socketMap;
 
     vector<ConfigNode> children = ast_.getChildren();
 
     if (children.empty())
     {
-        ServerConfigue defaultConfig("0.0.0.0", 80);
+        ServerConfig defaultConfig("0.0.0.0", 80);
         ConfigNode emptyServer;
         emptyServer.setType(BLOCK);
         emptyServer.setName("server");
         defaultConfig.addServerNode(emptyServer);
 
-        vector<ServerConfigue> result;
+        vector<ServerConfig> result;
         result.push_back(defaultConfig);
-        return result;
+
+        ServerConfigs_ = result;
+        return;
     }
 
     for (size_t i = 0; i < children.size(); ++i)
@@ -288,18 +291,18 @@ vector<ServerConfigue> Config::getServerConfigues()
             oss << host << ":" << port;
             string key = oss.str();
             if (socketMap.find(key) == socketMap.end())
-                socketMap[key] = ServerConfigue(host, port);
+                socketMap[key] = ServerConfig(host, port);
             socketMap[key].addServerNode(serverNode);
         }
     }
 
     // Converting the map to vector
-    vector<ServerConfigue> result;
-    for (map<string, ServerConfigue>::iterator it = socketMap.begin();
+    vector<ServerConfig> result;
+    for (map<string, ServerConfig>::iterator it = socketMap.begin();
          it != socketMap.end(); ++it)
     {
         result.push_back(it->second);
     }
 
-    return result;
+    ServerConfigs_ = result;
 }

@@ -1,5 +1,6 @@
 #include "Location.hpp"
 #include <cstdlib>
+using namespace std;
 
 // ============================================================
 // Location implementations
@@ -96,6 +97,28 @@ pair<int, string> Location::getPairVal(const string &key) const
   return make_pair(0, "");
 }
 
+string Location::findErrorPagePath(int statusCode) const
+{
+  // Search in location node first, then server node
+  const ConfigNode *nodes[] = { &location_, &serverNode_ };
+  for (int n = 0; n < 2; n++) {
+    const vector<ConfigNode> &children = nodes[n]->getChildren();
+    for (size_t i = 0; i < children.size(); i++) {
+      if (children[i].getName() == "error_page") {
+        const vector<string> &args = children[i].getArguments();
+        if (args.size() >= 2) {
+          string path = args[args.size() - 1];
+          for (size_t j = 0; j < args.size() - 1; j++) {
+            if (std::atoi(args[j].c_str()) == statusCode)
+              return path;
+          }
+        }
+      }
+    }
+  }
+  return "";
+}
+
 ConfigValue Location::operator[](const string &key) const
 {
   return ConfigValue(key, this);
@@ -176,48 +199,3 @@ ConfigValue::operator pair<int, string>() const
 {
   return location_->getPairVal(key_);
 }
-
-
-// "server_name" returns str list
-//   Default: "" (empty string)
-
-// "error_page" returns pair(int list, string)
-//   Default: none (no default error pages configured)
-
-// "client_max_body_size" returns string
-//   Default: "1m" (1 megabyte)
-
-// "client_body_timeout" returns string
-//   Default: "60s" (60 seconds)
-
-// "root" returns string
-//   Default: "html" or "/usr/share/nginx/html" (depends on installation)
-
-// "index" returns str list
-//   Default: ["index.html"]
-
-// "autoindex" returns bool
-//   Default: off (false)
-
-// "method" returns str list
-//   Default: none (all methods allowed if not specified)
-//   Note: This isn't a standard Nginx directive - you might mean limit_except
-
-// "return" returns pair(int, string)
-//   Default: none (no default return)
-
-// "internal" returns bool
-//   Default: off (false)
-
-// "cgi_ext" returns str list
-//   Default: none (not a standard Nginx directive - custom for CGI)
-
-// "cgi_path" returns string
-//   Default: none (not a standard Nginx directive - custom for CGI)
-
-// "cgi_timeout" returns string
-//   Default: none (not a standard Nginx directive - custom for CGI)
-
-// "upload_store" returns string
-//   Default: none (not a standard Nginx directive by default)
-//   Note: This is from nginx-upload-module or similar

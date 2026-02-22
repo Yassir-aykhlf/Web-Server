@@ -1,4 +1,5 @@
 #include "ConfigRouter.hpp"
+using namespace std;
 
 void ConfigRouter::buildServerNodeMap()
 {
@@ -29,14 +30,14 @@ void ConfigRouter::buildServerNodeMap()
     serverName_ = serverNodeMap_.begin()->first;
 }
 
-ConfigRouter::ConfigRouter(const ServerConfigue &serverConf, const string &serverName)
+ConfigRouter::ConfigRouter(const ServerConfig &serverConf, const string &serverName)
     : serverConf_(serverConf), trieRoot_(NULL), serverName_(serverName)
 {
   buildServerNodeMap();
   buildLocationTrie();
 }
 
-ConfigRouter::ConfigRouter(const ServerConfigue &serverConf)
+ConfigRouter::ConfigRouter(const ServerConfig &serverConf)
     : serverConf_(serverConf), trieRoot_(NULL), serverName_("")
 {
   buildServerNodeMap();
@@ -48,7 +49,7 @@ ConfigRouter::~ConfigRouter()
   delete trieRoot_;
 }
 
-const ServerConfigue &ConfigRouter::getServerConfig() const
+const ServerConfig &ConfigRouter::getServerConfig() const
 {
   return serverConf_;
 }
@@ -99,8 +100,6 @@ void ConfigRouter::insertLocationByURI(const URI &uri, const ConfigNode &locatio
   for (size_t i = 0; i < segments.size(); i++)
   {
     const string &seg = segments[i];
-
-    // cout << "Inserting segment: " << seg << endl;
 
     // Look for existing child with this segment
     LocationTrieNode *child = NULL;
@@ -207,20 +206,3 @@ Location ConfigRouter::route(const string &path)
   // No match found - return empty Location
   return Location(ConfigNode(), serverNodeMap_[serverName_]);
 }
-
-// TODO :
-//  2 - implement the virtuale servers ..........
-
-// TODO :
-
-// creat a location based on server_name + server_configue
-// soo :
-// first get all ip:port from all servers , for each ip:port creat a list of server nodes
-// serverConfigue is/has multiple server block that have that ip:port pair => soo search on all the servers that has the same ip:port in the listen block , store them in a list
-
-// in router , loop over all the server_names , each name has his confNode (server),
-//  should be a map<string, confNode>, to map the node based on servername
-//  ConfigueRouter(serverConfigue , server_name), if it's a reqeust that has a hostname ,
-//  so we creat the map from the multiple configNode we have in serverConfigue => soo loop over servernames for each node , get each server name put the node , check if allerdy exist in map if no add it ,
-
-// in last the intraface is the same internal logic is more complex

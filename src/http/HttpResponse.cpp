@@ -64,7 +64,6 @@ std::string HttpResponse::build() const {
     std::ostringstream response;
     response << HTTP_VERSION << " " << _statusCode << " " << getStatusText(_statusCode) << "\r\n";
     
-    // for (const auto& header : _headers) {  
     for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it) {
         response << it->first << ": " << it->second << "\r\n";
     }

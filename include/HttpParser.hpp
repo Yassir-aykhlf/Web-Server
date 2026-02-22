@@ -1,5 +1,4 @@
-#ifndef HTTPPARSER_HPP
-#define HTTPPARSER_HPP
+#pragma once
 
 #include "webserv.hpp"
 #include "HttpRequest.hpp"
@@ -51,4 +50,3 @@ private:
     HttpMethod stringToMethod(const std::string& method);
 };
 
-#endif

@@ -74,6 +74,7 @@ std::string normalizePath(const std::string& path) {
     std::string part;
     bool isAbsolute = (path[0] == '/');
     bool startsWithDot = (path.length() >= 2 && path[0] == '.' && path[1] == '/');
+    bool endsWithSlash = (path.length() > 1 && path[path.length() - 1] == '/');
     while (std::getline(iss, part, '/')) {
         if (part.empty() || part == ".") {
             continue;
@@ -98,6 +99,8 @@ std::string normalizePath(const std::string& path) {
         result += parts[i];
     }
     if (result.empty()) result = isAbsolute ? "/": ".";
+    if (endsWithSlash && result.length() > 1 && result[result.length() - 1] != '/')
+        result += "/";
     return result;
 }
 
@@ -109,19 +112,12 @@ std::string trim(const std::string& str) {
     return str.substr(start, end - start + 1);
 }
 
-std::string getFileExtension(const std::string& path) {
-    size_t pos = path.rfind('.');
-    if (pos == std::string::npos || pos == path.length() - 1)
-        return "";
-    return path.substr(pos);
-}
-
-std::string getCurrentTime() {
-    time_t now = time(NULL);
-    struct tm* tm_info = gmtime(&now);
-    char buffer[128];
-    strftime(buffer, sizeof(buffer), "%a, %d %b %Y %H: %M:%S GMT", tm_info);
-    return std::string(buffer);
+void non_blocking(int fd) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    int result = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    if (result == -1) {
+        std::cerr << "Error setting non-blocking mode for fd: " << fd << std::endl;
+    }
 }
 
 std::string longToString(long value) {
@@ -130,8 +126,16 @@ std::string longToString(long value) {
     return oss.str();
 }
 
-std::string getStatusText(int statusCode) {
-    switch (statusCode) {
+std::string getCurrentTime() {
+    time_t now = time(NULL);
+    struct tm *gmt = gmtime(&now);
+    char buf[128];
+    strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", gmt);
+    return std::string(buf);
+}
+
+std::string getStatusText(int code) {
+    switch (code) {
         case 200: return "OK";
         case 201: return "Created";
         case 204: return "No Content";
@@ -152,6 +156,14 @@ std::string getStatusText(int statusCode) {
         case 502: return "Bad Gateway";
         case 503: return "Service Unavailable";
         case 504: return "Gateway Timeout";
-        default: return "Unknown";
+        default:  return "Unknown";
     }
 }
+
+std::string getFileExtension(const std::string& filename) {
+    size_t pos = filename.rfind('.');
+    if (pos == std::string::npos)
+        return "";
+    return filename.substr(pos);
+}
+

@@ -1,4 +1,5 @@
 #include "ConfigValidator.hpp"
+using namespace std;
 
 ConfigValidator::ConfigValidator()
 {
@@ -573,9 +574,9 @@ bool ConfigValidator::validateCgiExt(const vector<string> &params)
         const string &ext = params[i];
         if (ext.empty() || ext[0] != '.')
             return false;
-        for (size_t i = 1; i < ext.size(); ++i)
+        for (size_t j = 1; j < ext.size(); ++j)
         {
-            if (!isalnum(static_cast<unsigned char>(ext[i])))
+            if (!isalnum(static_cast<unsigned char>(ext[j])))
                 return false;
         }
     }
@@ -675,7 +676,10 @@ bool ConfigValidator::isAbsolutePath(const string &path)
 
 bool ConfigValidator::isValidFilesystemPath(const string &path)
 {
-    if (!isAbsolutePath(path))
+    if (path.empty())
+        return false;
+
+    if (!isAbsolutePath(path) && path[0] != '.')
         return false;
 
     for (size_t i = 0; i < path.length() - 1; i++)

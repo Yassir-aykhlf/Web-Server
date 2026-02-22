@@ -2,7 +2,6 @@
 
 #include "ConfigExceptions.hpp"
 #include "ConfigNode.hpp"
-#include "ConfigParser.hpp"
 #include <cctype>
 #include <fstream>
 #include <limits>
@@ -21,23 +20,21 @@ enum TokenType
 struct Token
 {
   TokenType type;
-  string value;
+  std::string value;
 
   Token() : type(EOS) {}
 
-  Token(TokenType t, const string &v) : type(t), value(v) {}
+  Token(TokenType t, const std::string &v) : type(t), value(v) {}
 };
 
 class ConfigParser
 {
 private:
-  ifstream stream_;
+  std::ifstream stream_;
   Token currentToken_;
-  string filename_;
+  std::string filename_;
 
-  // ========================================
-  // Tokenization (private methods)
-  // ========================================
+  // Tokenization
   char peekChar();
   char getChar();
   void skipWhitespace();
@@ -47,17 +44,13 @@ private:
   Token readWordToken();
   Token readNextToken();
 
-  // ========================================
-  // Token interface (private)
-  // ========================================
+  // Token interface
   void advance();
   bool match(TokenType type) const;
   Token expect(TokenType type);
 
-  // ========================================
-  // Parsing (private methods)
-  // ========================================
-  void openFile(const string &filename);
+  // Parsing
+  void openFile(const std::string &filename);
   void parseContext(ConfigNode &parent);
   ConfigNode parseDirective();
 
@@ -65,5 +58,5 @@ public:
   ConfigParser();
   ~ConfigParser();
 
-  ConfigNode parse(const string filename);
+  ConfigNode parse(const std::string filename);
 };
