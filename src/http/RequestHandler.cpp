@@ -2,6 +2,8 @@
 #include "CgiHandler.hpp"
 #include "Logger.hpp"
 
+// ── Private helpers ──
+
 size_t RequestHandler::parseBodySize(const std::string& sizeStr) {
     if (sizeStr.empty())
         return DEFAULT_MAX_BODY_SIZE;
@@ -211,9 +213,9 @@ HttpResponse RequestHandler::generateDirectoryListing(const std::string& dirPath
 HttpResponse RequestHandler::handleGet(const HttpRequest& request, const Location& location) {
     std::string filePath = resolveFilePath(request, location);
     if (isCgiRequest(filePath, location)) {
-        if (!fileExists(filePath))
-            return HttpResponse::makeError(STATUS_NOT_FOUND);
-        return CgiHandler::execute(request, location, filePath);
+        // CGI requests are handled asynchronously by Client::buildResponse.
+        // If we reach here, something went wrong.
+        return HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR, "CGI routing error");
     }
     std::string uploadStore = location.getStringValue("upload_store");
     if (!fileExists(filePath) && !uploadStore.empty() && isDirectory(uploadStore)) {
@@ -236,9 +238,9 @@ HttpResponse RequestHandler::handleGet(const HttpRequest& request, const Locatio
 HttpResponse RequestHandler::handlePost(const HttpRequest& request, const Location& location) {
     std::string filePath = resolveFilePath(request, location);
     if (isCgiRequest(filePath, location)) {
-        if (!fileExists(filePath))
-            return HttpResponse::makeError(STATUS_NOT_FOUND);
-        return CgiHandler::execute(request, location, filePath);
+        // CGI requests are handled asynchronously by Client::buildResponse.
+        // If we reach here, something went wrong.
+        return HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR, "CGI routing error");
     }
     std::string uploadStore = location.getStringValue("upload_store");
     if (uploadStore.empty()) {

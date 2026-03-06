@@ -17,26 +17,16 @@ void URI::parse(const string& uri)
 
   string temp = uri;
 
-  // Extract fragment (after #)
+  // Strip fragment and query (we only care about the path for routing)
   size_t fragmentPos = temp.find('#');
   if (fragmentPos != string::npos)
-  {
-    fragment_ = temp.substr(fragmentPos + 1);
     temp = temp.substr(0, fragmentPos);
-  }
 
-  // Extract query (after ?)
   size_t queryPos = temp.find('?');
   if (queryPos != string::npos)
-  {
-    query_ = temp.substr(queryPos + 1);
     temp = temp.substr(0, queryPos);
-  }
 
-  // What's left is the path
   path_ = temp.empty() ? "/" : temp;
-  
-  // Parse segments
   parseSegments();
 }
 
@@ -69,11 +59,10 @@ string URI::getNormalizedPath() const
     const string& seg = segments_[i];
     
     if (seg == ".")
-      continue;  // Skip current directory
+      continue;
     
     if (seg == "..")
     {
-      // Go up one level if possible
       if (!normalizedSegments.empty())
         normalizedSegments.pop_back();
     }
@@ -83,7 +72,6 @@ string URI::getNormalizedPath() const
     }
   }
 
-  // Rebuild path
   if (normalizedSegments.empty())
     return "/";
 
@@ -92,23 +80,4 @@ string URI::getNormalizedPath() const
     result += "/" + normalizedSegments[i];
 
   return result;
-}
-
-string URI::getExtension() const
-{
-  if (segments_.empty())
-    return "";
-  
-  const string& lastSegment = segments_[segments_.size() - 1];
-  size_t dotPos = lastSegment.find_last_of('.');
-  
-  if (dotPos != string::npos && dotPos > 0)
-    return lastSegment.substr(dotPos);
-  
-  return "";
-}
-
-bool URI::isDirectory() const
-{
-  return !path_.empty() && path_[path_.length() - 1] == '/';
 }

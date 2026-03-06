@@ -11,7 +11,6 @@ public:
         WARNING,
         ERROR
     };
-    static void setLevel(Level level);
     static void debug(const std::string& message);
     static void info(const std::string& message);
     static void warning(const std::string& message);
@@ -20,7 +19,5 @@ public:
 private:
     Logger();
     static Level _level;
-    static void log(Level level, const std::string& message);
-    static std::string getLevelString(Level level);
 };
 

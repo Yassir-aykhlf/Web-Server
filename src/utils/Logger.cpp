@@ -3,10 +3,6 @@
 
 Logger::Level Logger::_level = Logger::INFO;
 
-void Logger::setLevel(Level level) {
-    _level = level;
-}
-
 void Logger::debug(const std::string& message) {
     if (_level <= DEBUG) {
         std::cout << "[DEBUG] " << message << std::endl;

@@ -17,7 +17,6 @@ SRCS = $(SRCDIR)/main.cpp \
        $(SRCDIR)/config/ConfigNode.cpp \
        $(SRCDIR)/config/ServerConfig.cpp\
        $(SRCDIR)/server/Server.cpp \
-       $(SRCDIR)/server/Socket.cpp \
        $(SRCDIR)/server/Client.cpp \
        $(SRCDIR)/server/EventLoop.cpp \
        $(SRCDIR)/http/HttpRequest.cpp \

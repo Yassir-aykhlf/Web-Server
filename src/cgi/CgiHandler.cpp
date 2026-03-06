@@ -1,6 +1,8 @@
 #include "CgiHandler.hpp"
+#include "Client.hpp"
 #include "Logger.hpp"
 #include <climits>
+#include <sys/wait.h>
 
 std::string CgiHandler::findInterpreter(const std::string& scriptPath, const Location& location) {
     std::string cgiPath = location.getStringValue("cgi_path");
@@ -100,24 +102,30 @@ void CgiHandler::parseCgiOutput(const std::string& output, HttpResponse& respons
     response.setBody(body);
 }
 
-HttpResponse CgiHandler::execute(const HttpRequest& request, const Location& location,
-                                  const std::string& scriptPath) {
+bool CgiHandler::startCgi(const HttpRequest& request, const Location& location,
+                           const std::string& scriptPath, CgiProcess& cgi,
+                           HttpResponse& errorResponse) {
     std::string interpreter = findInterpreter(scriptPath, location);
     if (interpreter.empty()) {
         Logger::error("No CGI interpreter found for: " + scriptPath);
-        return HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR, "No CGI interpreter configured");
+        errorResponse = HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR, "No CGI interpreter configured");
+        return false;
     }
+
     char resolvedPath[PATH_MAX];
     std::string absScriptPath = scriptPath;
     if (realpath(scriptPath.c_str(), resolvedPath) != NULL) {
         absScriptPath = resolvedPath;
     }
+
     int pipeIn[2];
     int pipeOut[2];
     if (pipe(pipeIn) < 0 || pipe(pipeOut) < 0) {
         Logger::error("Failed to create pipes for CGI");
-        return HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR);
+        errorResponse = HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR);
+        return false;
     }
+
     pid_t pid = fork();
     if (pid < 0) {
         Logger::error("Failed to fork for CGI");
@@ -125,15 +133,19 @@ HttpResponse CgiHandler::execute(const HttpRequest& request, const Location& loc
         close(pipeIn[1]);
         close(pipeOut[0]);
         close(pipeOut[1]);
-        return HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR);
+        errorResponse = HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR);
+        return false;
     }
+
     if (pid == 0) {
+        // Child process
         close(pipeIn[1]);
         close(pipeOut[0]);
         dup2(pipeIn[0], STDIN_FILENO);
         dup2(pipeOut[1], STDOUT_FILENO);
         close(pipeIn[0]);
         close(pipeOut[1]);
+
         std::string scriptDir = absScriptPath;
         size_t lastSlash = scriptDir.rfind('/');
         if (lastSlash != std::string::npos)
@@ -141,83 +153,70 @@ HttpResponse CgiHandler::execute(const HttpRequest& request, const Location& loc
         else
             scriptDir = ".";
         chdir(scriptDir.c_str());
+
         std::vector<std::string> envVec = buildEnv(request, absScriptPath);
         std::vector<char*> envp;
         for (size_t i = 0; i < envVec.size(); i++)
             envp.push_back(const_cast<char*>(envVec[i].c_str()));
         envp.push_back(NULL);
+
         char* argv[3];
         argv[0] = const_cast<char*>(interpreter.c_str());
         argv[1] = const_cast<char*>(absScriptPath.c_str());
         argv[2] = NULL;
+
         execve(interpreter.c_str(), argv, &envp[0]);
         _exit(1);
     }
+
+    // Parent process — close child ends
     close(pipeIn[0]);
     close(pipeOut[1]);
-    if (!request.getBody().empty()) {
-        const std::string& body = request.getBody();
-        size_t totalWritten = 0;
-        while (totalWritten < body.length()) {
-            ssize_t written = write(pipeIn[1], body.c_str() + totalWritten, body.length() - totalWritten);
-            if (written <= 0) {
-                Logger::error("Failed to write to CGI stdin");
-                break;
-            }
-            totalWritten += written;
-        }
+
+    // Set pipes to non-blocking
+    int inFlags = fcntl(pipeIn[1], F_GETFL, 0);
+    int outFlags = fcntl(pipeOut[0], F_GETFL, 0);
+    if (inFlags < 0 || outFlags < 0 ||
+        fcntl(pipeIn[1], F_SETFL, inFlags | O_NONBLOCK) < 0 ||
+        fcntl(pipeOut[0], F_SETFL, outFlags | O_NONBLOCK) < 0) {
+        Logger::error("Failed to configure CGI pipes as non-blocking");
+        close(pipeIn[1]);
+        close(pipeOut[0]);
+        kill(pid, SIGKILL);
+        waitpid(pid, NULL, 0);
+        errorResponse = HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR, "CGI pipe setup failed");
+        return false;
     }
-    close(pipeIn[1]);
-    std::string cgiOutput;
-    char buffer[BUFFER_SIZE];
-    ssize_t bytesRead;
+
+    // Populate the CgiProcess struct
+    cgi.pid = pid;
+    cgi.pipeIn = pipeIn[1];
+    cgi.pipeOut = pipeOut[0];
+    cgi.outputBuffer.clear();
+    cgi.bodyToWrite = request.getBody();
+    cgi.bytesWritten = 0;
+    cgi.stdinDone = cgi.bodyToWrite.empty();
+    cgi.startTime = time(NULL);
+    cgi.location = location;
+
+    // Parse timeout from location config
     std::string timeoutStr = location.getStringValue("cgi_timeout");
-    int timeoutSec = 30;
+    cgi.timeoutSec = 30;
     if (!timeoutStr.empty()) {
         std::string numStr = timeoutStr;
         if (!numStr.empty() && (numStr[numStr.length() - 1] == 's' || numStr[numStr.length() - 1] == 'S'))
             numStr = numStr.substr(0, numStr.length() - 1);
-        timeoutSec = stringToInt(numStr);
-        if (timeoutSec <= 0)
-            timeoutSec = 30;
+        cgi.timeoutSec = stringToInt(numStr);
+        if (cgi.timeoutSec <= 0)
+            cgi.timeoutSec = 30;
     }
-    time_t startTime = time(NULL);
-    struct pollfd cgiPfd;
-    cgiPfd.fd = pipeOut[0];
-    cgiPfd.events = POLLIN;
-    while (true) {
-        int remaining = timeoutSec - static_cast<int>(time(NULL) - startTime);
-        if (remaining <= 0) {
-            Logger::error("CGI timeout for: " + absScriptPath);
-            kill(pid, SIGKILL);
-            close(pipeOut[0]);
-            waitpid(pid, NULL, 0);
-            return HttpResponse::makeError(STATUS_GATEWAY_TIMEOUT, "CGI script timed out");
-        }
-        int pollResult = poll(&cgiPfd, 1, remaining * 1000);
-        if (pollResult < 0) {
-            break;
-        }
-        if (pollResult == 0) {
-            Logger::error("CGI timeout for: " + absScriptPath);
-            kill(pid, SIGKILL);
-            close(pipeOut[0]);
-            waitpid(pid, NULL, 0);
-            return HttpResponse::makeError(STATUS_GATEWAY_TIMEOUT, "CGI script timed out");
-        }
-        bytesRead = read(pipeOut[0], buffer, sizeof(buffer) - 1);
-        if (bytesRead <= 0)
-            break;
-        cgiOutput.append(buffer, bytesRead);
+
+    // If there's no body to send, close stdin immediately
+    if (cgi.stdinDone) {
+        close(cgi.pipeIn);
+        cgi.pipeIn = -1;
     }
-    close(pipeOut[0]);
-    int status;
-    waitpid(pid, &status, 0);
-    if (WIFEXITED(status) && WEXITSTATUS(status) != 0 && cgiOutput.empty()) {
-        Logger::error("CGI script exited with error: " + scriptPath);
-        return HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR, "CGI script error");
-    }
-    HttpResponse response;
-    parseCgiOutput(cgiOutput, response);
-    return response;
+
+    Logger::info("CGI process started (pid: " + intToString(pid) + ") for: " + absScriptPath);
+    return true;
 }

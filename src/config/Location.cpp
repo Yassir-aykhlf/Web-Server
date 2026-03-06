@@ -71,20 +71,6 @@ vector<string> Location::getListValue(const string &key) const
   return getDefaultList(key);
 }
 
-pair<vector<int>, string> Location::getPairValue(const string &key) const
-{
-  const vector<string> *args = getArguments(key);
-  if (args && args->size() >= 2)
-  {
-    string path = (*args)[args->size() - 1];
-    vector<int> codes;
-    for (size_t i = 0; i < args->size() - 1; i++)
-      codes.push_back(std::atoi((*args)[i].c_str()));
-    return make_pair(codes, path);
-  }
-  return make_pair(vector<int>(), "");
-}
-
 pair<int, string> Location::getPairVal(const string &key) const
 {
   const vector<string> *args = getArguments(key);
@@ -117,11 +103,6 @@ string Location::findErrorPagePath(int statusCode) const
     }
   }
   return "";
-}
-
-ConfigValue Location::operator[](const string &key) const
-{
-  return ConfigValue(key, this);
 }
 
 string Location::getDefaultString(const string &key) const
@@ -168,34 +149,4 @@ vector<string> Location::getDefaultList(const string &key) const
     return vector<string>();
   }
   return vector<string>();
-}
-// ============================================================
-// ConfigValue implementations
-// ============================================================
-ConfigValue::ConfigValue(const string &key, const Location *loc)
-    : key_(key), location_(loc) {}
-
-ConfigValue::operator string() const
-{
-  return location_->getStringValue(key_);
-}
-
-ConfigValue::operator bool() const
-{
-  return location_->getBoolValue(key_);
-}
-
-ConfigValue::operator vector<string>() const
-{
-  return location_->getListValue(key_);
-}
-
-ConfigValue::operator pair<vector<int>, string>() const
-{
-  return location_->getPairValue(key_);
-}
-
-ConfigValue::operator pair<int, string>() const
-{
-  return location_->getPairVal(key_);
 }

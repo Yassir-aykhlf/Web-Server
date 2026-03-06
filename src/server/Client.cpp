@@ -2,10 +2,37 @@
 #include "HttpParser.hpp"
 #include "HttpResponse.hpp"
 #include "RequestHandler.hpp"
+#include "CgiHandler.hpp"
 #include "ConfigRouter.hpp"
 #include "Config.hpp"
 #include "Logger.hpp"
 #include <sstream>
+
+// ── CgiProcess implementation ──
+
+CgiProcess::CgiProcess()
+    : pid(-1), pipeIn(-1), pipeOut(-1),
+      bytesWritten(0), stdinDone(true),
+      startTime(0), timeoutSec(30), keepAlive(false) {}
+
+void CgiProcess::reset() {
+    pid = -1;
+    pipeIn = -1;
+    pipeOut = -1;
+    outputBuffer.clear();
+    bodyToWrite.clear();
+    bytesWritten = 0;
+    stdinDone = true;
+    startTime = 0;
+    timeoutSec = 30;
+    keepAlive = false;
+}
+
+bool CgiProcess::isActive() const {
+    return pid > 0;
+}
+
+// ── Client implementation ──
 
 Client::Client(int fd, Config* config, int listenFd) : _fd(fd), _listenFd(listenFd), _requestBuffer(""), _responseBuffer(""), _sendOffset(0), _config(config) {
     _state = READING;
@@ -27,12 +54,6 @@ void Client::appendToRequestBuffer(const std::string& data) {
 
 const std::string& Client::getRequestBuffer() const {
     return _requestBuffer;
-}
-
-// Remove processed data from the request buffer
-// len(headers) + 4 + len(body)
-void Client::updateRequestBuffer(int len) {
-    _requestBuffer = _requestBuffer.substr(len);
 }
 
 void Client::clearRequestBuffer() {
@@ -125,6 +146,50 @@ void Client::buildResponse() {
             ConfigRouter router(servers[serverIdx], hostname);
             Location location = router.route(request.getPath());
 
+            // Check if this is a CGI request — if so, start it asynchronously
+            std::string filePath = RequestHandler::resolveFilePath(request, location);
+            if (RequestHandler::isCgiRequest(filePath, location)) {
+                if (!RequestHandler::fileExists(filePath)) {
+                    response = HttpResponse::makeError(STATUS_NOT_FOUND);
+                    response = RequestHandler::applyCustomErrorPage(response, location);
+                    response.setConnection(request.isKeepAlive());
+                    _responseBuffer = response.build();
+                    return;
+                }
+
+                // Check method allowed and body size before starting CGI
+                if (!RequestHandler::isMethodAllowed(request, location)) {
+                    response = HttpResponse::makeError(STATUS_METHOD_NOT_ALLOWED);
+                    response = RequestHandler::applyCustomErrorPage(response, location);
+                    response.setConnection(request.isKeepAlive());
+                    _responseBuffer = response.build();
+                    return;
+                }
+
+                size_t maxBody = RequestHandler::parseBodySize(location.getStringValue("client_max_body_size"));
+                if (request.getBody().length() > maxBody) {
+                    response = HttpResponse::makeError(STATUS_PAYLOAD_TOO_LARGE);
+                    response = RequestHandler::applyCustomErrorPage(response, location);
+                    response.setConnection(request.isKeepAlive());
+                    _responseBuffer = response.build();
+                    return;
+                }
+
+                // Start CGI asynchronously
+                HttpResponse errorResponse;
+                if (CgiHandler::startCgi(request, location, filePath, _cgiProcess, errorResponse)) {
+                    _cgiProcess.keepAlive = request.isKeepAlive();
+                    _state = CGI_PROCESSING;
+                    return; // EventLoop will handle the rest
+                } else {
+                    // CGI failed to start — return the error
+                    errorResponse = RequestHandler::applyCustomErrorPage(errorResponse, location);
+                    errorResponse.setConnection(request.isKeepAlive());
+                    _responseBuffer = errorResponse.build();
+                    return;
+                }
+            }
+
             response = RequestHandler::handleRequest(request, location);
         } else {
             response = HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR, "No server configuration");
@@ -139,4 +204,16 @@ void Client::buildResponse() {
 
 void Client::setSendOffset(size_t value) {
     _sendOffset = value;
+}
+
+CgiProcess& Client::getCgiProcess() {
+    return _cgiProcess;
+}
+
+const CgiProcess& Client::getCgiProcess() const {
+    return _cgiProcess;
+}
+
+Config* Client::getConfig() const {
+    return _config;
 }

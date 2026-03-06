@@ -27,19 +27,13 @@ public:
   Config(const std::string filename);
   void load();
 
-  const ConfigNode &getAST() { return ast_; };
-
   bool isIPv4(const std::string &ip);
   void inetAddressStr(sockaddr *addr, socklen_t addrlen, std::string &host, std::string &port);
-  std::string getIpByHost(const std::string &host) ;
-  std::pair<std::string, int> parseListenArgument(const std::string &arg) ;
-  std::vector<std::pair<std::string, int> > getAllListenInfo(const ConfigNode &serverNode) ;
-  std::vector<std::string> getServerNames(const ConfigNode &serverNode) ;
+  std::string getIpByHost(const std::string &host);
+  std::pair<std::string, int> parseListenArgument(const std::string &arg);
+  std::vector<std::pair<std::string, int> > getAllListenInfo(const ConfigNode &serverNode);
+  std::vector<std::string> getServerNames(const ConfigNode &serverNode);
   std::vector<ServerConfig>& getServerConfigs();
   void setServerConfigs();
-
-  // Debugging
-  void printAST(const ConfigNode &node, int indent) const;
-  void printAST(void) const;
 };
 

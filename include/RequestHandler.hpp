@@ -6,11 +6,17 @@
 #include "Location.hpp"
 #include "MimeTypes.hpp"
 
-class CgiHandler;
-
 class RequestHandler {
 public:
     static HttpResponse handleRequest(const HttpRequest& request, const Location& location);
+    static HttpResponse applyCustomErrorPage(const HttpResponse& errorResponse, const Location& location);
+
+    // Used by Client::buildResponse for CGI pre-checks
+    static std::string resolveFilePath(const HttpRequest& request, const Location& location);
+    static bool isCgiRequest(const std::string& path, const Location& location);
+    static bool fileExists(const std::string& path);
+    static bool isMethodAllowed(const HttpRequest& request, const Location& location);
+    static size_t parseBodySize(const std::string& sizeStr);
 
 private:
     RequestHandler();
@@ -24,13 +30,7 @@ private:
     static HttpResponse generateDirectoryListing(const std::string& dirPath,
                                                   const std::string& uriPath);
 
-    static bool isMethodAllowed(const HttpRequest& request, const Location& location);
-    static std::string resolveFilePath(const HttpRequest& request, const Location& location);
     static bool isDirectory(const std::string& path);
-    static bool fileExists(const std::string& path);
-    static bool isCgiRequest(const std::string& path, const Location& location);
     static std::string readFile(const std::string& path);
-    static size_t parseBodySize(const std::string& sizeStr);
-    static HttpResponse applyCustomErrorPage(const HttpResponse& errorResponse, const Location& location);
 };
 

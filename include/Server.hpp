@@ -23,7 +23,6 @@ public:
 private:
     Config *_config;
     EventLoop _eventLoop;
-    std::vector<int> _listenFds;
     bool _running;
 
     bool setupListeners();
