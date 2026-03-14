@@ -26,7 +26,8 @@ SRCS = $(SRCDIR)/main.cpp \
        $(SRCDIR)/http/RequestHandler.cpp \
        $(SRCDIR)/cgi/CgiHandler.cpp \
        $(SRCDIR)/utils/Utils.cpp \
-       $(SRCDIR)/utils/Logger.cpp
+       $(SRCDIR)/utils/Logger.cpp \
+       $(SRCDIR)/utils/socket_utils.cpp
 
 # src/%.cpp files to obj/%.o files
 OBJS = $(SRCS:$(SRCDIR)/%.cpp=$(OBJDIR)/%.o)

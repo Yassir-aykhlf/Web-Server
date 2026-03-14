@@ -1,11 +1,14 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include <unistd.h>
 #include <ctime>
 #include <sys/types.h>
 #include "Location.hpp"
 #include "HttpRequest.hpp"
+#include "HttpResponse.hpp"
+#include "ServerConfig.hpp"
 
 class Config;
 class HttpParser;
@@ -67,5 +70,16 @@ class Client {
         size_t _sendOffset;
         Config* _config;
         CgiProcess _cgiProcess;
+
+        // Response building helpers
+        void buildParseErrorResponse(const HttpParser& parser);
+        size_t findMatchingServerIndex(const std::vector<ServerConfig>& servers) const;
+        std::string extractHostname(const HttpRequest& request) const;
+        HttpResponse buildErrorWithCustomPage(int statusCode, const Location& location,
+                                               bool keepAlive);
+        void handleCgiRequest(const HttpRequest& request, const Location& location,
+                               const std::string& filePath);
+        void buildFinalResponse(HttpResponse response, const HttpRequest& request);
+        size_t findContentLength() const;
     };
 

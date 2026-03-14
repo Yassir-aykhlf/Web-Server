@@ -69,28 +69,40 @@ bool HttpParser::parseRequestLine() {
     }
     _request.setMethodString(parts[0]);
     _request.setMethod(stringToMethod(parts[0]));
-    std::string uri = parts[1];
-    if (uri.length() > 8192) {
-        setError(STATUS_URI_TOO_LONG, "URI too long");
+    if (!extractAndValidateUri(parts[1]))
         return false;
-    }
-    _request.setUri(uri);
-    size_t queryPos = uri.find('?');
-    if (queryPos != std::string::npos) {
-        _request.setPath(urlDecode(uri.substr(0, queryPos)));
-        _request.setQueryString(uri.substr(queryPos + 1));
-    }
-    else {
-        _request.setPath(urlDecode(uri));
-    }
-    _request.setPath(normalizePath(_request.getPath()));
     _request.setVersion(parts[2]);
-    if (parts[2] != "HTTP/1.0" && parts[2] != "HTTP/1.1") {
+    if (!isSupportedHttpVersion(parts[2])) {
         setError(STATUS_BAD_REQUEST, "Unsupported HTTP version");
         return false;
     }
     _state = PARSE_HEADERS;
     return true;
+}
+
+bool HttpParser::extractAndValidateUri(const std::string& uri) {
+    if (uri.length() > MAX_URI_LENGTH) {
+        setError(STATUS_URI_TOO_LONG, "URI too long");
+        return false;
+    }
+    _request.setUri(uri);
+    splitUriPathAndQuery(uri);
+    _request.setPath(normalizePath(_request.getPath()));
+    return true;
+}
+
+void HttpParser::splitUriPathAndQuery(const std::string& uri) {
+    size_t queryPos = uri.find('?');
+    if (queryPos != std::string::npos) {
+        _request.setPath(urlDecode(uri.substr(0, queryPos)));
+        _request.setQueryString(uri.substr(queryPos + 1));
+    } else {
+        _request.setPath(urlDecode(uri));
+    }
+}
+
+bool HttpParser::isSupportedHttpVersion(const std::string& version) {
+    return version == "HTTP/1.0" || version == "HTTP/1.1";
 }
 
 bool HttpParser::parseHeaders() {
@@ -105,24 +117,7 @@ bool HttpParser::parseHeaders() {
                 setError(STATUS_BAD_REQUEST, "Missing Host header");
                 return false;
             }
-            if (_request.isChunked()) {
-                _state = PARSE_CHUNKED_SIZE;
-            }
-            else {
-                _contentLength = _request.getContentLength();
-                // Anti-DDos / overflow protection
-                if (_contentLength > _maxBodySize) {
-                    setError(STATUS_PAYLOAD_TOO_LARGE, "Request body too large");
-                    return false;
-                }
-                if (_contentLength > 0) {
-                    _state = PARSE_BODY;
-                }
-                else {
-                    _state = PARSE_COMPLETE;
-                }
-            }
-            return true;
+            return determineBodyParsingStrategy();
         }
         size_t colonPos = line.find(':');
         if (colonPos == std::string::npos) {
@@ -133,6 +128,23 @@ bool HttpParser::parseHeaders() {
         std::string value = trim(line.substr(colonPos + 1));
         _request.setHeader(name, value);
     }
+}
+
+bool HttpParser::determineBodyParsingStrategy() {
+    if (_request.isChunked()) {
+        _state = PARSE_CHUNKED_SIZE;
+        return true;
+    }
+    _contentLength = _request.getContentLength();
+    if (_contentLength > _maxBodySize) {
+        setError(STATUS_PAYLOAD_TOO_LARGE, "Request body too large");
+        return false;
+    }
+    if (_contentLength > 0)
+        _state = PARSE_BODY;
+    else
+        _state = PARSE_COMPLETE;
+    return true;
 }
 
 bool HttpParser::parseBody() {

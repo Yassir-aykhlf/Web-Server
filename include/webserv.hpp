@@ -36,6 +36,15 @@
 #define SERVER_NAME "webserv/1.0"
 #define HTTP_VERSION "HTTP/1.1"
 
+#define MAX_URI_LENGTH 8192
+#define BYTES_PER_KILOBYTE 1024
+#define BYTES_PER_MEGABYTE 1048576
+#define BYTES_PER_GIGABYTE 1073741824
+#define DEFAULT_CGI_TIMEOUT_SECONDS 30
+#define DEFAULT_HTTP_PORT 80
+#define DEFAULT_ROOT_PATH "/var/www/html"
+#define POLL_TIMEOUT_MS 200
+
 enum HttpStatus {
     STATUS_OK = 200,
     STATUS_CREATED = 201,
@@ -69,3 +78,10 @@ std::string getCurrentTime();
 std::string getStatusText(int code);
 std::string getFileExtension(const std::string& filename);
 void non_blocking(int fd);
+bool isRedirectStatusCode(int code);
+bool hasTrailingSlash(const std::string& str);
+std::string ensureTrailingSlash(const std::string& str);
+std::string stripTrailingSlash(const std::string& str);
+std::string extractFilenameFromPath(const std::string& path);
+std::string resolveRootPath(const Location& location);
+std::string convertHeaderToCgiEnvName(const std::string& headerName);

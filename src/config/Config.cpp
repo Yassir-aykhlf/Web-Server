@@ -1,4 +1,5 @@
 #include "Config.hpp"
+#include "webserv.hpp"
 
 #include <sstream>
 using namespace std;
@@ -31,35 +32,24 @@ bool Config::isIPv4(const string &ip)
 {
     if (ip.empty())
         return false;
-
     vector<string> octets;
     stringstream ss(ip);
     string octet;
-
-    // Split by '.'
     while (getline(ss, octet, '.'))
     {
         octets.push_back(octet);
     }
-
-    // Must have exactly 4 octets
     if (octets.size() != 4)
         return false;
-
-    // Validate each octet
     for (size_t i = 0; i < octets.size(); i++)
     {
         if (octets[i].empty())
             return false;
-
-        // Check all characters are digits
         for (size_t j = 0; j < octets[i].length(); j++)
         {
             if (!isdigit(octets[i][j]))
                 return false;
         }
-
-        // Convert to integer and check range
         stringstream octetSS(octets[i]);
         int num;
         if (!(octetSS >> num) || !octetSS.eof())
@@ -68,7 +58,6 @@ bool Config::isIPv4(const string &ip)
         if (num < 0 || num > 255)
             return false;
     }
-
     return true;
 }
 
@@ -100,7 +89,6 @@ string Config::getIpByHost(const string &host)
         inetAddressStr(result->ai_addr, result->ai_addrlen, ip, dummyPort);
         freeaddrinfo(result);
     }
-
     return ip;
 }
 
@@ -118,7 +106,7 @@ pair<string, int> Config::parseListenArgument(const string &arg)
             int port = atoi(arg.substr(closeBracket + 2).c_str());
             return make_pair(host, port);
         }
-        return make_pair(host, 80);
+        return make_pair(host, DEFAULT_HTTP_PORT);
     }
     size_t colonPos = arg.find(':');
     if (colonPos == string::npos)
@@ -131,8 +119,8 @@ pair<string, int> Config::parseListenArgument(const string &arg)
                 return make_pair("0.0.0.0", atoi(arg.c_str()));
         }
         if (!isIPv4(arg))
-            return make_pair(getIpByHost(arg), 80);
-        return make_pair(arg, 80);
+            return make_pair(getIpByHost(arg), DEFAULT_HTTP_PORT);
+        return make_pair(arg, DEFAULT_HTTP_PORT);
     }
     host = arg.substr(0, colonPos);
     if (!isIPv4(host))
@@ -161,12 +149,10 @@ vector<pair<string, int> > Config::getAllListenInfo(const ConfigNode &serverNode
             }
         }
     }
-
     if (listenList.empty())
     {
-        listenList.push_back(make_pair("0.0.0.0", 80));
+        listenList.push_back(make_pair("0.0.0.0", DEFAULT_HTTP_PORT));
     }
-
     return listenList;
 }
 
@@ -193,12 +179,10 @@ vector<ServerConfig>& Config::getServerConfigs()
 void Config::setServerConfigs()
 {
     map<string, ServerConfig> socketMap;
-
     vector<ConfigNode> children = ast_.getChildren();
-
     if (children.empty())
     {
-        ServerConfig defaultConfig("0.0.0.0", 80);
+        ServerConfig defaultConfig("0.0.0.0", DEFAULT_HTTP_PORT);
         ConfigNode emptyServer;
         emptyServer.setType(BLOCK);
         emptyServer.setName("server");
@@ -210,7 +194,6 @@ void Config::setServerConfigs()
         ServerConfigs_ = result;
         return;
     }
-
     for (size_t i = 0; i < children.size(); ++i)
     {
         const ConfigNode &serverNode = children[i];
@@ -229,14 +212,11 @@ void Config::setServerConfigs()
             socketMap[key].addServerNode(serverNode);
         }
     }
-
-    // Converting the map to vector
     vector<ServerConfig> result;
     for (map<string, ServerConfig>::iterator it = socketMap.begin();
          it != socketMap.end(); ++it)
     {
         result.push_back(it->second);
     }
-
     ServerConfigs_ = result;
 }

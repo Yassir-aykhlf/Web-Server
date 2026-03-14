@@ -8,6 +8,7 @@
 #include "Logger.hpp"
 
 class Client;
+struct CgiProcess;
 
 class EventLoop {
     public:
@@ -29,10 +30,16 @@ class EventLoop {
         // Maps CGI pipe fds back to the client fd that owns them
         std::map<int, int> _cgiPipeToClient;
 
+        // Connection management
         void acceptNewConnection(int listenerFd);
         void handleClientRead(int index);
         void handleClientWrite(int index);
         void removeClient(int index);
+
+        // Response completion helpers
+        bool isEntireResponseSent(Client* client) const;
+        bool shouldCloseConnection(const std::string& response) const;
+        void resetClientForNextRequest(Client* client, int pollIndex);
 
         // CGI integration into event loop
         void registerCgiPipes(Client* client);
@@ -41,6 +48,19 @@ class EventLoop {
         void handleCgiPipeWrite(int pipeFd);
         void finalizeCgiResponse(Client* client);
         void checkCgiTimeouts();
+        Client* findClientForCgiPipe(int pipeFd);
+        bool readAllAvailableData(int pipeFd, std::string& outputBuffer);
+        int reapChildProcess(pid_t pid);
+        bool cgiExitedWithError(int childStatus, const std::string& output);
+        bool hasCgiTimedOut(const CgiProcess& cgi, time_t now) const;
+
+        // Event dispatching
+        bool registerListenerSockets();
+        bool isListenerSocket(int fd) const;
+        bool isCgiPipeFd(int fd) const;
+        void dispatchListenerEvent(int index);
+        void dispatchCgiPipeEvent(int index);
+        void dispatchClientEvent(int index);
 
         // Pollfd helpers
         void removePollFd(int fd);

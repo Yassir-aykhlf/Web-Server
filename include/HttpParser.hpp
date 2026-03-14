@@ -48,5 +48,9 @@ private:
     bool parseChunkData();
     void setError(int code, const std::string& message);
     HttpMethod stringToMethod(const std::string& method);
+    bool extractAndValidateUri(const std::string& uri);
+    void splitUriPathAndQuery(const std::string& uri);
+    bool isSupportedHttpVersion(const std::string& version);
+    bool determineBodyParsingStrategy();
 };
 

@@ -1,4 +1,5 @@
 #include "webserv.hpp"
+#include "Location.hpp"
 
 std::string toLower(const std::string& str) {
     std::string result = str;
@@ -162,5 +163,48 @@ std::string getFileExtension(const std::string& filename) {
     if (pos == std::string::npos)
         return "";
     return filename.substr(pos);
+}
+
+bool isRedirectStatusCode(int code) {
+    return code >= 300 && code < 400;
+}
+
+bool hasTrailingSlash(const std::string& str) {
+    return !str.empty() && str[str.length() - 1] == '/';
+}
+
+std::string ensureTrailingSlash(const std::string& str) {
+    if (hasTrailingSlash(str))
+        return str;
+    return str + "/";
+}
+
+std::string stripTrailingSlash(const std::string& str) {
+    if (str.length() > 1 && hasTrailingSlash(str))
+        return str.substr(0, str.length() - 1);
+    return str;
+}
+
+std::string extractFilenameFromPath(const std::string& path) {
+    size_t lastSlash = path.rfind('/');
+    if (lastSlash != std::string::npos && lastSlash + 1 < path.length())
+        return path.substr(lastSlash + 1);
+    return "";
+}
+
+std::string resolveRootPath(const Location& location) {
+    std::string root = location.getStringValue("root");
+    if (root.empty())
+        return DEFAULT_ROOT_PATH;
+    return stripTrailingSlash(root);
+}
+
+std::string convertHeaderToCgiEnvName(const std::string& headerName) {
+    std::string name = "HTTP_" + toUpper(headerName);
+    for (size_t i = 0; i < name.length(); i++) {
+        if (name[i] == '-')
+            name[i] = '_';
+    }
+    return name;
 }
 
