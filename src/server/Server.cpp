@@ -22,6 +22,7 @@ void Server::handleSignal(int sig) {
 }
 
 bool Server::init() {
+    signal(SIGPIPE, SIG_IGN);  // Ignore broken pipe
     signal(SIGINT, handleSignal);
     signal(SIGTERM, handleSignal);
     _instance = this;
