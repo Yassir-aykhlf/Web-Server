@@ -22,7 +22,7 @@ void Server::handleSignal(int sig) {
 }
 
 bool Server::init() {
-    signal(SIGPIPE, SIG_IGN);  // Ignore broken pipe
+    signal(SIGPIPE, SIG_IGN);
     signal(SIGINT, handleSignal);
     signal(SIGTERM, handleSignal);
     _instance = this;
@@ -84,7 +84,7 @@ bool Server::setupServerSockets()
             Logger::error("Failed to create socket for server " + intToString(i));
             return false;
         }
-        serverConfig.setSocketFD(fd_socket); // no need for const_cast anymore
+        serverConfig.setSocketFD(fd_socket);
         Logger::info("Created socket (fd: " + intToString(fd_socket) + ") for server on " + host + ":" + intToString(port));
     }
     return true;

@@ -1,4 +1,5 @@
 *.o
 *.d
 TODO
-webserv.out
+# webserv.out
+webserv

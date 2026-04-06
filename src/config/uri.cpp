@@ -17,7 +17,6 @@ void URI::parse(const string& uri)
 
   string temp = uri;
 
-  // Strip fragment and query (we only care about the path for routing)
   size_t fragmentPos = temp.find('#');
   if (fragmentPos != string::npos)
     temp = temp.substr(0, fragmentPos);

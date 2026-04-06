@@ -43,8 +43,6 @@ std::vector<std::string> CgiHandler::buildEnv(const HttpRequest& request,
     return env;
 }
 
-// ── CGI output parsing helpers ──
-
 std::string CgiHandler::findHeaderBodySeparator(const std::string& output, size_t& headerEnd) {
     headerEnd = output.find("\r\n\r\n");
     if (headerEnd != std::string::npos)
@@ -109,8 +107,6 @@ void CgiHandler::parseCgiOutput(const std::string& output, HttpResponse& respons
         response.setContentType("text/html");
     response.setBody(body);
 }
-
-// ── CGI process startup helpers ──
 
 std::string CgiHandler::resolveAbsoluteScriptPath(const std::string& scriptPath) {
     char resolvedPath[PATH_MAX];

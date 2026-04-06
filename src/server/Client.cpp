@@ -8,8 +8,6 @@
 #include "Logger.hpp"
 #include <sstream>
 
-// ── CgiProcess implementation ──
-
 CgiProcess::CgiProcess()
     : pid(-1), pipeIn(-1), pipeOut(-1),
       bytesWritten(0), stdinDone(true),
@@ -31,8 +29,6 @@ void CgiProcess::reset() {
 bool CgiProcess::isActive() const {
     return pid > 0;
 }
-
-// ── Client implementation ──
 
 Client::Client(int fd, Config* config, int listenFd) : _fd(fd), _listenFd(listenFd), _requestBuffer(""), _responseBuffer(""), _sendOffset(0), _config(config) {
     _state = READING;

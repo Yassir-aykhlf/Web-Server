@@ -194,12 +194,11 @@ void Config::setServerConfigs()
         ServerConfigs_ = result;
         return;
     }
+
     for (size_t i = 0; i < children.size(); ++i)
     {
         const ConfigNode &serverNode = children[i];
-
         vector<pair<string, int> > listens = getAllListenInfo(serverNode);
-
         for (size_t j = 0; j < listens.size(); ++j)
         {
             string host = listens[j].first;

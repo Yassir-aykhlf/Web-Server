@@ -22,32 +22,23 @@ void ConfigParser::openFile(const string &filename)
         throw FileException("Cannot open file : " + filename);
 }
 
-// Tokenization helpers
-
-char ConfigParser::peekChar()
-{
+char ConfigParser::peekChar() {
     return stream_.peek();
 }
 
-char ConfigParser::getChar()
-{
+char ConfigParser::getChar() {
     return stream_.get();
 }
 
-void ConfigParser::skipWhitespace()
-{
-    while (stream_ && isspace(peekChar()))
-    {
+void ConfigParser::skipWhitespace() {
+    while (stream_ && isspace(peekChar())) {
         getChar();
     }
 }
 
-void ConfigParser::skipComments()
-{
-    while (stream_)
-    {
+void ConfigParser::skipComments() {
+    while (stream_) {
         skipWhitespace();
-
         if (peekChar() != '#')
             break;
         while (stream_ && getChar() != '\n')
@@ -143,11 +134,9 @@ Token ConfigParser::expect(TokenType type)
 
 ConfigNode ConfigParser::parseDirective()
 {
-
     Token nameToken = expect(WORD);
     ConfigNode node(SIMPLE, nameToken.value);
 
-    // Collect arguments
     while (!match(SEMICOLON) && !match(LBRACE))
     {
         if (match(EOS))
@@ -156,14 +145,12 @@ ConfigNode ConfigParser::parseDirective()
         node.addArgument(arg.value);
     }
 
-    // Simple directive
     if (match(SEMICOLON))
     {
         advance();
         return node;
     }
 
-    // Block directive
     if (match(LBRACE))
     {
         advance();
@@ -189,15 +176,10 @@ void ConfigParser::parseContext(ConfigNode &parent)
 
 ConfigNode ConfigParser::parse(const string filename)
 {
-
     openFile(filename);
-
     advance();
     ConfigNode root = ConfigNode(ROOT, "http");
-
     parseContext(root);
-
     stream_.close();
-
     return root;
 }

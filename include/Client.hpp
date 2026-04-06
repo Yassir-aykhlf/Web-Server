@@ -21,16 +21,16 @@ enum ClientState {
 
 struct CgiProcess {
     pid_t       pid;
-    int         pipeIn;         // fd to write request body to CGI stdin
-    int         pipeOut;        // fd to read CGI stdout from
-    std::string outputBuffer;   // accumulated CGI output
-    std::string bodyToWrite;    // request body still to send to CGI
-    size_t      bytesWritten;   // how much of bodyToWrite has been sent
-    bool        stdinDone;      // true once all body data sent & pipe closed
+    int         pipeIn;
+    int         pipeOut;
+    std::string outputBuffer;
+    std::string bodyToWrite;
+    size_t      bytesWritten;
+    bool        stdinDone;
     time_t      startTime;
     int         timeoutSec;
-    bool        keepAlive;      // from the original request
-    Location    location;       // for custom error pages
+    bool        keepAlive;
+    Location    location;
 
     CgiProcess();
     void reset();
@@ -56,7 +56,6 @@ class Client {
         void setSendOffset(size_t value);
         size_t getSendOffset() const;
 
-        // CGI async support
         CgiProcess& getCgiProcess();
         const CgiProcess& getCgiProcess() const;
         Config* getConfig() const;
@@ -71,7 +70,6 @@ class Client {
         Config* _config;
         CgiProcess _cgiProcess;
 
-        // Response building helpers
         void buildParseErrorResponse(const HttpParser& parser);
         size_t findMatchingServerIndex(const std::vector<ServerConfig>& servers) const;
         std::string extractHostname(const HttpRequest& request) const;

@@ -27,21 +27,17 @@ class EventLoop {
         std::map<int, Client*> _clients;
         std::set<int> _listenSockets;
 
-        // Maps CGI pipe fds back to the client fd that owns them
         std::map<int, int> _cgiPipeToClient;
 
-        // Connection management
         void acceptNewConnection(int listenerFd);
         void handleClientRead(int index);
         void handleClientWrite(int index);
         void removeClient(int index);
 
-        // Response completion helpers
         bool isEntireResponseSent(Client* client) const;
         bool shouldCloseConnection(const std::string& response) const;
         void resetClientForNextRequest(Client* client, int pollIndex);
 
-        // CGI integration into event loop
         void registerCgiPipes(Client* client);
         void unregisterCgiPipes(Client* client);
         void handleCgiPipeRead(int pipeFd);
@@ -54,7 +50,6 @@ class EventLoop {
         bool cgiExitedWithError(int childStatus, const std::string& output);
         bool hasCgiTimedOut(const CgiProcess& cgi, time_t now) const;
 
-        // Event dispatching
         bool registerListenerSockets();
         bool isListenerSocket(int fd) const;
         bool isCgiPipeFd(int fd) const;
@@ -62,7 +57,6 @@ class EventLoop {
         void dispatchCgiPipeEvent(int index);
         void dispatchClientEvent(int index);
 
-        // Pollfd helpers
         void removePollFd(int fd);
         void setPollEvents(int fd, short events);
         void sendErrorAndFinish(Client* client, int statusCode, const std::string& msg,

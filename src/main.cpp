@@ -1,17 +1,17 @@
 #include "webserv.hpp"
+#include <exception>
 #include <iostream>
 #include <string>
-using namespace std;
 
 int main(int argc, char **argv)
 {
     if (argc > 2)
     {
-        cerr << "Usage: " << argv[0] << " [config_file]" << endl;
+        std::cerr << "Usage: " << argv[0] << " [config_file]" << std::endl;
         return 1;
     }
 
-    string configFile;
+    std::string configFile;
     if (argc == 2)
         configFile = argv[1];
     else
@@ -27,12 +27,12 @@ int main(int argc, char **argv)
     }
     catch (const ConfigException &e)
     {
-        cerr << "Configuration Error: " << e.what() << endl;
+        std::cerr << "Configuration Error: " << e.what() << std::endl;
         return 1;
     }
-    catch (const exception &e)
+    catch (const std::exception &e)
     {
-        cerr << "Error: " << e.what() << endl;
+        std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
     return 0;

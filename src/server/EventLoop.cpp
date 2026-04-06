@@ -118,10 +118,6 @@ void EventLoop::resetClientForNextRequest(Client* client, int pollIndex) {
     _pollfds[pollIndex].events = POLLIN;
 }
 
-// ──────────────────────────────────────────────
-// Pollfd helpers
-// ──────────────────────────────────────────────
-
 void EventLoop::removePollFd(int fd) {
     for (int i = 0; i < _n_fds; i++) {
         if (_pollfds[i].fd == fd) {
@@ -155,10 +151,6 @@ void EventLoop::sendErrorAndFinish(Client* client, int statusCode,
     client->setState(WRITING);
     setPollEvents(client->getFd(), POLLOUT);
 }
-
-// ──────────────────────────────────────────────
-// CGI pipe management — integrate into main poll
-// ──────────────────────────────────────────────
 
 void EventLoop::registerCgiPipes(Client* client) {
     CgiProcess& cgi = client->getCgiProcess();
@@ -338,10 +330,6 @@ void EventLoop::checkCgiTimeouts() {
         sendErrorAndFinish(client, STATUS_GATEWAY_TIMEOUT, "CGI script timed out", location, keepAlive);
     }
 }
-
-// ──────────────────────────────────────
-// Main event loop
-// ──────────────────────────────────────
 
 bool EventLoop::registerListenerSockets() {
     std::vector<ServerConfig>& serverConfig = _config->getServerConfigs();

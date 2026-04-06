@@ -21,9 +21,7 @@ struct Token
 {
   TokenType type;
   std::string value;
-
   Token() : type(EOS) {}
-
   Token(TokenType t, const std::string &v) : type(t), value(v) {}
 };
 
@@ -34,7 +32,6 @@ private:
   Token currentToken_;
   std::string filename_;
 
-  // Tokenization
   char peekChar();
   char getChar();
   void skipWhitespace();
@@ -44,12 +41,10 @@ private:
   Token readWordToken();
   Token readNextToken();
 
-  // Token interface
   void advance();
   bool match(TokenType type) const;
   Token expect(TokenType type);
 
-  // Parsing
   void openFile(const std::string &filename);
   void parseContext(ConfigNode &parent);
   ConfigNode parseDirective();

@@ -2,8 +2,6 @@
 #include "CgiHandler.hpp"
 #include "Logger.hpp"
 
-// ── Private helpers ──
-
 size_t RequestHandler::parseBodySize(const std::string& sizeStr) {
     if (sizeStr.empty())
         return DEFAULT_MAX_BODY_SIZE;
@@ -93,8 +91,6 @@ HttpResponse RequestHandler::applyCustomErrorPage(const HttpResponse& errorRespo
     }
     return errorResponse;
 }
-
-// ── Redirect and return directive handling ──
 
 HttpResponse RequestHandler::handleReturnDirective(const std::pair<int, std::string>& returnDirective) {
     if (isRedirectStatusCode(returnDirective.first) && !returnDirective.second.empty())
@@ -212,8 +208,6 @@ std::string RequestHandler::readDirectoryEntries(DIR* dir, const std::string& di
     }
     return entries;
 }
-
-// ── Upload handling helpers ──
 
 std::string RequestHandler::generateUploadFilename(const HttpRequest& request) {
     std::string filename = extractFilenameFromPath(request.getPath());

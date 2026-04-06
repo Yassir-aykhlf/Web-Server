@@ -47,7 +47,6 @@ class ConfigValidator
 private:
   std::map<std::string, DirectiveRule> rules_;
 
-  // Parameter validation functions
   static bool isValidHostname(const std::string &hostname);
   static bool isValidIPv4(const std::string &ip);
   static bool isValidIPv6(const std::string &ip);
@@ -76,7 +75,6 @@ private:
   static bool isValidFilesystemPath(const std::string &path);
   static bool validateCgiPath(const std::vector<std::string> &params);
 
-  // Validation helpers
   void validateNode(const ConfigNode &node, const std::string &context);
   bool isAllowedInContext(
       const std::string &directive, const std::string &context);

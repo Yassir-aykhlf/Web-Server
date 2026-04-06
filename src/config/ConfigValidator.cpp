@@ -1,14 +1,12 @@
 #include "ConfigValidator.hpp"
 using namespace std;
 
-ConfigValidator::ConfigValidator()
-{
+ConfigValidator::ConfigValidator() {
     initializeRules();
 }
 
 void ConfigValidator::initializeRules()
 {
-    // Method 1: Using temporary vectors
     vector<string> empty;
     empty.push_back("");
     vector<string> httpParents;
@@ -125,8 +123,7 @@ void ConfigValidator::validateNode(
         validateNode(node.getChildren()[i], node.getName());
 }
 
-void ConfigValidator::validate(const ConfigNode &root)
-{
+void ConfigValidator::validate(const ConfigNode &root) {
     validateNode(root, "");
 }
 
@@ -171,13 +168,11 @@ bool ConfigValidator::validateListen(const vector<string> &params)
 
         string ipv6 = listen.substr(1, closeBracket - 1);
 
-        // Just IPv6: [::1]
         if (closeBracket == listen.length() - 1)
         {
             return isValidIPv6(ipv6);
         }
 
-        // IPv6 with port: [::1]:8080
         if (closeBracket + 1 < listen.length())
         {
             if (listen[closeBracket + 1] != ':')
@@ -189,21 +184,17 @@ bool ConfigValidator::validateListen(const vector<string> &params)
         return false;
     }
 
-    // Case 3: Check if it contains ':'
     size_t colonPos = listen.find(':');
 
-    // Case 3a: No colon - could be just port, IPv4, or hostname
     if (colonPos == string::npos)
     {
         return isValidPort(listen) || isValidIPv4(listen) ||
                isValidHostname(listen);
     }
 
-    // Case 3b: Contains colon - could be IPv4:port or hostname:port
     string beforeColon = listen.substr(0, colonPos);
     string afterColon = listen.substr(colonPos + 1);
 
-    // Check if it's a valid combination
     if (isValidPort(afterColon))
     {
         return isValidIPv4(beforeColon) || isValidHostname(beforeColon);
@@ -240,30 +231,25 @@ bool ConfigValidator::isValidIPv4(const string &ip)
     stringstream ss(ip);
     string octet;
 
-    // Split by '.'
     while (getline(ss, octet, '.'))
     {
         octets.push_back(octet);
     }
 
-    // Must have exactly 4 octets
     if (octets.size() != 4)
         return false;
 
-    // Validate each octet
     for (size_t i = 0; i < octets.size(); i++)
     {
         if (octets[i].empty())
             return false;
 
-        // Check all characters are digits
         for (size_t j = 0; j < octets[i].length(); j++)
         {
             if (!isdigit(octets[i][j]))
                 return false;
         }
 
-        // Convert to integer and check range
         stringstream octetSS(octets[i]);
         int num;
         if (!(octetSS >> num) || !octetSS.eof())
@@ -281,13 +267,11 @@ bool ConfigValidator::isValidIPv6(const string &ip)
     if (ip.empty())
         return false;
 
-    // Special cases
     if (ip == "::")
-        return true; // All zeros
+        return true;
     if (ip == "::1")
-        return true; // Loopback
+        return true;
 
-    // Check for invalid characters
     for (size_t i = 0; i < ip.length(); i++)
     {
         char c = ip[i];
@@ -295,19 +279,16 @@ bool ConfigValidator::isValidIPv6(const string &ip)
             return false;
     }
 
-    // Count consecutive colons (::)
     size_t doubleColonPos = ip.find("::");
     bool hasDoubleColon = (doubleColonPos != string::npos);
 
-    // Check for multiple "::"
     if (hasDoubleColon)
     {
         size_t secondDoubleColon = ip.find("::", doubleColonPos + 2);
         if (secondDoubleColon != string::npos)
-            return false; // Multiple "::" not allowed
+            return false;
     }
 
-    // Split by ':'
     vector<string> groups;
     stringstream ss(ip);
     string group;
@@ -317,7 +298,6 @@ bool ConfigValidator::isValidIPv6(const string &ip)
         groups.push_back(group);
     }
 
-    // Count non-empty groups
     size_t nonEmptyGroups = 0;
     for (size_t i = 0; i < groups.size(); i++)
     {
@@ -325,11 +305,9 @@ bool ConfigValidator::isValidIPv6(const string &ip)
         {
             nonEmptyGroups++;
 
-            // Each group max 4 hex digits
             if (groups[i].length() > 4)
                 return false;
 
-            // Check all are hex digits
             for (size_t j = 0; j < groups[i].length(); j++)
             {
                 if (!isxdigit(groups[i][j]))
@@ -338,8 +316,6 @@ bool ConfigValidator::isValidIPv6(const string &ip)
         }
     }
 
-    // IPv6 has 8 groups
-    // With "::" compression, can have fewer non-empty groups
     if (hasDoubleColon)
     {
         if (nonEmptyGroups > 7)
@@ -404,14 +380,11 @@ bool ConfigValidator::validateSize(const vector<string> &params)
     if (size.empty())
         return false;
 
-    // Check if all chars except last are digits
     for (size_t i = 0; i < size.length() - 1; i++)
     {
         if (!isdigit(size[i]))
             return false;
     }
-
-    // Last char can be digit or size suffix
     char last = size[size.length() - 1];
     if (isdigit(last))
         return true;
@@ -447,12 +420,8 @@ bool ConfigValidator::validateIndex(const vector<string> &params)
 
         if (name.empty())
             return false;
-
-        // nginx index files are filenames, not paths
         if (name.find('/') != string::npos)
             return false;
-
-        // disallow relative path tricks
         if (name == "." || name == "..")
             return false;
     }
