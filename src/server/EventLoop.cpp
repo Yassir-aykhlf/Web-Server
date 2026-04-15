@@ -215,10 +215,6 @@ bool EventLoop::readAllAvailableData(int pipeFd, std::string& outputBuffer) {
             pipeEof = true;
             break;
         }
-        if (bytesRead < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
-            break;
-        if (bytesRead < 0 && errno != EINTR)
-            pipeEof = true;
         break;
     }
     return pipeEof;
@@ -250,7 +246,7 @@ void EventLoop::handleCgiPipeWrite(int pipeFd) {
             removePollFd(pipeFd);
             cgi.pipeIn = -1;
         }
-    } else if (written < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+    } else if (written < 0) {
         Logger::error("Failed to write to CGI stdin pipe");
         cgi.stdinDone = true;
         _cgiPipeToClient.erase(pipeFd);
@@ -402,8 +398,6 @@ void EventLoop::run() {
     while (_running) {
         int poll_count = poll(&_pollfds[0], _pollfds.size(), POLL_TIMEOUT_MS);
         if (poll_count < 0) {
-            if (errno == EINTR)
-                continue;
             Logger::error("Poll error");
             cleanup();
             return;
