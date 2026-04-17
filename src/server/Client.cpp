@@ -124,6 +124,7 @@ void Client::buildResponse() {
 
             ConfigRouter router(servers[serverIdx], hostname);
             Location location = router.route(request.getPath());
+            
 
             response = RequestHandler::handleRequest(request, location);
         } else {

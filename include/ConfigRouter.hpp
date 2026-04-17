@@ -1,4 +1,5 @@
 #pragma once
+#include "Logger.hpp"
 #include "ConfigNode.hpp"
 #include "ServerConfig.hpp"
 #include "Location.hpp"

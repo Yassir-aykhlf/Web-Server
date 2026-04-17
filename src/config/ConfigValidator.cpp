@@ -663,8 +663,8 @@ bool ConfigValidator::isValidLocationPath(const string &path)
             return false;
     }
 
-    if (path.length() > 1 && path[path.length() - 1] == '/')
-        return false;
+    // if (path.length() > 1 && path[path.length() - 1] == '/')
+    //     return false;
 
     return true;
 }

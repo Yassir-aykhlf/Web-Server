@@ -210,6 +210,7 @@ HttpResponse RequestHandler::generateDirectoryListing(const std::string& dirPath
 
 HttpResponse RequestHandler::handleGet(const HttpRequest& request, const Location& location) {
     std::string filePath = resolveFilePath(request, location);
+    Logger::info("Handling GET request for path: " + filePath);
     if (isCgiRequest(filePath, location)) {
         if (!fileExists(filePath))
             return HttpResponse::makeError(STATUS_NOT_FOUND);

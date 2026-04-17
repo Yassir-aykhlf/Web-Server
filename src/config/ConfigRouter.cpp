@@ -74,6 +74,7 @@ void ConfigRouter::buildLocationTrie()
       {
         // Use URI to parse the location path
         URI locationURI(args[0]);
+
         insertLocationByURI(locationURI, children[i]);
       }
     }
@@ -190,6 +191,7 @@ Location ConfigRouter::route(const string &path)
   // Parse URI from path string
   URI uri(path);
 
+
   // Normalize the path (removes .., ., and more :) )
   string normalizedPath = uri.getNormalizedPath();
 
@@ -199,6 +201,11 @@ Location ConfigRouter::route(const string &path)
   // Find best matching location using normalized URI
   LocationTrieNode *match = findBestMatchByURI(normalizedURI);
 
+  //info loction root path
+  if (match)
+    Logger::info("Matched location: " + match->locationNode.getArguments().front() + " for path: " + path);
+  else
+    Logger::info("No matching location found for path: " + path);
   // If match found, create Location from it
   if (match && match->isEndOfPath)
     return Location(match->locationNode, serverNodeMap_[serverName_]);
