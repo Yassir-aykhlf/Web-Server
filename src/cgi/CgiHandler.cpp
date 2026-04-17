@@ -4,10 +4,11 @@
 #include <climits>
 #include <sys/wait.h>
 
-std::string CgiHandler::findInterpreter(const std::string& scriptPath, const Location& location) {
+std::string CgiHandler::findInterpreter(const std::string &scriptPath, const Location &location)
+{
     std::string cgiPath = location.getStringValue("cgi_path");
     if (!cgiPath.empty())
-        return cgiPath;
+        return resolveAbsoluteScriptPath(cgiPath);
     std::string ext = getFileExtension(scriptPath);
     if (ext == ".py")
         return "/usr/bin/python3";
@@ -20,8 +21,9 @@ std::string CgiHandler::findInterpreter(const std::string& scriptPath, const Loc
     return "";
 }
 
-std::vector<std::string> CgiHandler::buildEnv(const HttpRequest& request,
-                                               const std::string& scriptPath) {
+std::vector<std::string> CgiHandler::buildEnv(const HttpRequest &request,
+                                              const std::string &scriptPath)
+{
     std::vector<std::string> env;
     env.push_back("REQUEST_METHOD=" + request.getMethodString());
     env.push_back("QUERY_STRING=" + request.getQueryString());
@@ -35,15 +37,17 @@ std::vector<std::string> CgiHandler::buildEnv(const HttpRequest& request,
     env.push_back("SERVER_NAME=" + request.getHost());
     env.push_back("GATEWAY_INTERFACE=CGI/1.1");
     env.push_back("REDIRECT_STATUS=200");
-    const std::map<std::string, std::string>& headers = request.getHeaders();
+    const std::map<std::string, std::string> &headers = request.getHeaders();
     for (std::map<std::string, std::string>::const_iterator it = headers.begin();
-         it != headers.end(); ++it) {
+         it != headers.end(); ++it)
+    {
         env.push_back(convertHeaderToCgiEnvName(it->first) + "=" + it->second);
     }
     return env;
 }
 
-std::string CgiHandler::findHeaderBodySeparator(const std::string& output, size_t& headerEnd) {
+std::string CgiHandler::findHeaderBodySeparator(const std::string &output, size_t &headerEnd)
+{
     headerEnd = output.find("\r\n\r\n");
     if (headerEnd != std::string::npos)
         return "\r\n";
@@ -53,30 +57,40 @@ std::string CgiHandler::findHeaderBodySeparator(const std::string& output, size_
     return "";
 }
 
-void CgiHandler::applyCgiHeader(const std::string& name, const std::string& value,
-                                 HttpResponse& response, bool& hasStatus, bool& hasContentType) {
+void CgiHandler::applyCgiHeader(const std::string &name, const std::string &value,
+                                HttpResponse &response, bool &hasStatus, bool &hasContentType)
+{
     std::string lowerName = toLower(name);
-    if (lowerName == "status") {
+    if (lowerName == "status")
+    {
         hasStatus = true;
         int code = stringToInt(value);
         if (code > 0)
             response.setStatus(code);
-    } else if (lowerName == "content-type") {
+    }
+    else if (lowerName == "content-type")
+    {
         hasContentType = true;
         response.setContentType(value);
-    } else if (lowerName == "location") {
+    }
+    else if (lowerName == "location")
+    {
         response.setLocation(value);
         if (!hasStatus)
             response.setStatus(STATUS_FOUND);
-    } else {
+    }
+    else
+    {
         response.setHeader(name, value);
     }
 }
 
-void CgiHandler::parseCgiOutput(const std::string& output, HttpResponse& response) {
+void CgiHandler::parseCgiOutput(const std::string &output, HttpResponse &response)
+{
     size_t headerEnd;
     std::string separator = findHeaderBodySeparator(output, headerEnd);
-    if (separator.empty()) {
+    if (separator.empty())
+    {
         response.setStatus(STATUS_OK);
         response.setContentType("text/html");
         response.setBody(output);
@@ -89,7 +103,8 @@ void CgiHandler::parseCgiOutput(const std::string& output, HttpResponse& respons
     std::string line;
     bool hasStatus = false;
     bool hasContentType = false;
-    while (std::getline(iss, line)) {
+    while (std::getline(iss, line))
+    {
         if (!line.empty() && line[line.length() - 1] == '\r')
             line = line.substr(0, line.length() - 1);
         if (line.empty())
@@ -108,15 +123,18 @@ void CgiHandler::parseCgiOutput(const std::string& output, HttpResponse& respons
     response.setBody(body);
 }
 
-std::string CgiHandler::resolveAbsoluteScriptPath(const std::string& scriptPath) {
+std::string CgiHandler::resolveAbsoluteScriptPath(const std::string &scriptPath)
+{
     char resolvedPath[PATH_MAX];
     if (realpath(scriptPath.c_str(), resolvedPath) != NULL)
         return std::string(resolvedPath);
     return scriptPath;
 }
 
-bool CgiHandler::createCgiPipes(int pipeIn[2], int pipeOut[2], HttpResponse& errorResponse) {
-    if (pipe(pipeIn) < 0 || pipe(pipeOut) < 0) {
+bool CgiHandler::createCgiPipes(int pipeIn[2], int pipeOut[2], HttpResponse &errorResponse)
+{
+    if (pipe(pipeIn) < 0 || pipe(pipeOut) < 0)
+    {
         Logger::error("Failed to create pipes for CGI");
         errorResponse = HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR);
         return false;
@@ -124,7 +142,8 @@ bool CgiHandler::createCgiPipes(int pipeIn[2], int pipeOut[2], HttpResponse& err
     return true;
 }
 
-std::string CgiHandler::extractDirectoryFromPath(const std::string& path) {
+std::string CgiHandler::extractDirectoryFromPath(const std::string &path)
+{
     size_t lastSlash = path.rfind('/');
     if (lastSlash != std::string::npos)
         return path.substr(0, lastSlash);
@@ -132,9 +151,10 @@ std::string CgiHandler::extractDirectoryFromPath(const std::string& path) {
 }
 
 void CgiHandler::setupChildProcess(int pipeIn[2], int pipeOut[2],
-                                    const HttpRequest& request,
-                                    const std::string& interpreter,
-                                    const std::string& absScriptPath) {
+                                   const HttpRequest &request,
+                                   const std::string &interpreter,
+                                   const std::string &absScriptPath)
+{
     close(pipeIn[1]);
     close(pipeOut[0]);
     dup2(pipeIn[0], STDIN_FILENO);
@@ -144,30 +164,33 @@ void CgiHandler::setupChildProcess(int pipeIn[2], int pipeOut[2],
     std::string scriptDir = extractDirectoryFromPath(absScriptPath);
     chdir(scriptDir.c_str());
     std::vector<std::string> envVec = buildEnv(request, absScriptPath);
-    std::vector<char*> envp;
+    std::vector<char *> envp;
     for (size_t i = 0; i < envVec.size(); i++)
-        envp.push_back(const_cast<char*>(envVec[i].c_str()));
+        envp.push_back(const_cast<char *>(envVec[i].c_str()));
     envp.push_back(NULL);
-    char* argv[3];
-    argv[0] = const_cast<char*>(interpreter.c_str());
-    argv[1] = const_cast<char*>(absScriptPath.c_str());
+    char *argv[3];
+    argv[0] = const_cast<char *>(interpreter.c_str());
+    argv[1] = const_cast<char *>(absScriptPath.c_str());
     argv[2] = NULL;
     execve(interpreter.c_str(), argv, &envp[0]);
     _exit(1);
 }
 
-bool CgiHandler::setNonBlockingPipes(int pipeIn, int pipeOut) {
+bool CgiHandler::setNonBlockingPipes(int pipeIn, int pipeOut)
+{
     int inFlags = fcntl(pipeIn, F_GETFL, 0);
     int outFlags = fcntl(pipeOut, F_GETFL, 0);
     if (inFlags < 0 || outFlags < 0 ||
         fcntl(pipeIn, F_SETFL, inFlags | O_NONBLOCK) < 0 ||
-        fcntl(pipeOut, F_SETFL, outFlags | O_NONBLOCK) < 0) {
+        fcntl(pipeOut, F_SETFL, outFlags | O_NONBLOCK) < 0)
+    {
         return false;
     }
     return true;
 }
 
-int CgiHandler::parseCgiTimeout(const Location& location) {
+int CgiHandler::parseCgiTimeout(const Location &location)
+{
     std::string timeoutStr = location.getStringValue("cgi_timeout");
     if (timeoutStr.empty())
         return DEFAULT_CGI_TIMEOUT_SECONDS;
@@ -180,8 +203,9 @@ int CgiHandler::parseCgiTimeout(const Location& location) {
     return timeout;
 }
 
-void CgiHandler::populateCgiProcess(CgiProcess& cgi, pid_t pid, int pipeIn, int pipeOut,
-                                     const HttpRequest& request, const Location& location) {
+void CgiHandler::populateCgiProcess(CgiProcess &cgi, pid_t pid, int pipeIn, int pipeOut,
+                                    const HttpRequest &request, const Location &location)
+{
     cgi.pid = pid;
     cgi.pipeIn = pipeIn;
     cgi.pipeOut = pipeOut;
@@ -192,17 +216,20 @@ void CgiHandler::populateCgiProcess(CgiProcess& cgi, pid_t pid, int pipeIn, int 
     cgi.startTime = time(NULL);
     cgi.location = location;
     cgi.timeoutSec = parseCgiTimeout(location);
-    if (cgi.stdinDone) {
+    if (cgi.stdinDone)
+    {
         close(cgi.pipeIn);
         cgi.pipeIn = -1;
     }
 }
 
-bool CgiHandler::startCgi(const HttpRequest& request, const Location& location,
-                           const std::string& scriptPath, CgiProcess& cgi,
-                           HttpResponse& errorResponse) {
+bool CgiHandler::startCgi(const HttpRequest &request, const Location &location,
+                          const std::string &scriptPath, CgiProcess &cgi,
+                          HttpResponse &errorResponse)
+{
     std::string interpreter = findInterpreter(scriptPath, location);
-    if (interpreter.empty()) {
+    if (interpreter.empty())
+    {
         Logger::error("No CGI interpreter found for: " + scriptPath);
         errorResponse = HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR, "No CGI interpreter configured");
         return false;
@@ -213,7 +240,8 @@ bool CgiHandler::startCgi(const HttpRequest& request, const Location& location,
     if (!createCgiPipes(pipeIn, pipeOut, errorResponse))
         return false;
     pid_t pid = fork();
-    if (pid < 0) {
+    if (pid < 0)
+    {
         Logger::error("Failed to fork for CGI");
         close(pipeIn[0]);
         close(pipeIn[1]);
@@ -222,12 +250,14 @@ bool CgiHandler::startCgi(const HttpRequest& request, const Location& location,
         errorResponse = HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR);
         return false;
     }
-    if (pid == 0) {
+    if (pid == 0)
+    {
         setupChildProcess(pipeIn, pipeOut, request, interpreter, absScriptPath);
     }
     close(pipeIn[0]);
     close(pipeOut[1]);
-    if (!setNonBlockingPipes(pipeIn[1], pipeOut[0])) {
+    if (!setNonBlockingPipes(pipeIn[1], pipeOut[0]))
+    {
         Logger::error("Failed to configure CGI pipes as non-blocking");
         close(pipeIn[1]);
         close(pipeOut[0]);

@@ -20,10 +20,10 @@ public:
   Location &operator=(const Location &other);
   Location(const ConfigNode &loc, const ConfigNode &server);
 
+  std::string getPath() const;
   std::string getStringValue(const std::string &key) const;
   bool getBoolValue(const std::string &key) const;
   std::vector<std::string> getListValue(const std::string &key) const;
   std::pair<int, std::string> getPairVal(const std::string &key) const;
   std::string findErrorPagePath(int statusCode) const;
 };
-

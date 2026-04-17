@@ -3,9 +3,11 @@
 #include "webserv.hpp"
 #include "HttpRequest.hpp"
 
-class HttpParser {
+class HttpParser
+{
 public:
-    enum ParserState {
+    enum ParserState
+    {
         PARSE_REQUEST_LINE,
         PARSE_HEADERS,
         PARSE_BODY,
@@ -14,7 +16,8 @@ public:
         PARSE_COMPLETE,
         PARSE_ERROR
     };
-    enum ParseResult {
+    enum ParseResult
+    {
         RESULT_INCOMPLETE,
         RESULT_COMPLETE,
         RESULT_ERROR
@@ -23,8 +26,9 @@ public:
     HttpParser();
     ~HttpParser();
 
-    ParseResult parse(const char* data, size_t len);
-    const HttpRequest& getRequest() const;
+    ParseResult parse(const char *data, size_t len);
+    const HttpRequest &getRequest() const;
+    const std::string &getRemainingBuffer() const;
     ParserState getState() const;
     int getErrorCode() const;
     void reset();
@@ -46,11 +50,10 @@ private:
     bool parseBody();
     bool parseChunkSize();
     bool parseChunkData();
-    void setError(int code, const std::string& message);
-    HttpMethod stringToMethod(const std::string& method);
-    bool extractAndValidateUri(const std::string& uri);
-    void splitUriPathAndQuery(const std::string& uri);
-    bool isSupportedHttpVersion(const std::string& version);
+    void setError(int code, const std::string &message);
+    HttpMethod stringToMethod(const std::string &method);
+    bool extractAndValidateUri(const std::string &uri);
+    void splitUriPathAndQuery(const std::string &uri);
+    bool isSupportedHttpVersion(const std::string &version);
     bool determineBodyParsingStrategy();
 };
-

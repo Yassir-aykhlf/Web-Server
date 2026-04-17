@@ -20,6 +20,14 @@ Location &Location::operator=(const Location &other)
 Location::Location(const ConfigNode &loc, const ConfigNode &server)
     : serverNode_(server), location_(loc) {}
 
+string Location::getPath() const
+{
+  const vector<string> &args = location_.getArguments();
+  if (!args.empty())
+    return args[0];
+  return "/";
+}
+
 const ConfigNode *Location::findDirective(const ConfigNode &node, const string &key) const
 {
   const vector<ConfigNode> &children = node.getChildren();
@@ -86,15 +94,20 @@ pair<int, string> Location::getPairVal(const string &key) const
 string Location::findErrorPagePath(int statusCode) const
 {
   // Search in location node first, then server node
-  const ConfigNode *nodes[] = { &location_, &serverNode_ };
-  for (int n = 0; n < 2; n++) {
+  const ConfigNode *nodes[] = {&location_, &serverNode_};
+  for (int n = 0; n < 2; n++)
+  {
     const vector<ConfigNode> &children = nodes[n]->getChildren();
-    for (size_t i = 0; i < children.size(); i++) {
-      if (children[i].getName() == "error_page") {
+    for (size_t i = 0; i < children.size(); i++)
+    {
+      if (children[i].getName() == "error_page")
+      {
         const vector<string> &args = children[i].getArguments();
-        if (args.size() >= 2) {
+        if (args.size() >= 2)
+        {
           string path = args[args.size() - 1];
-          for (size_t j = 0; j < args.size() - 1; j++) {
+          for (size_t j = 0; j < args.size() - 1; j++)
+          {
             if (std::atoi(args[j].c_str()) == statusCode)
               return path;
           }
@@ -110,11 +123,11 @@ string Location::getDefaultString(const string &key) const
   if (key == "root")
     return "/var/www/html";
   if (key == "client_max_body_size")
-    return "1m";
+    return "1000m";
   if (key == "client_body_timeout")
     return "60s";
   if (key == "cgi_timeout")
-    return "30s"; 
+    return "30s";
 
   return "";
 }

@@ -1,7 +1,7 @@
 NAME = webserv
 
 CXX = c++
-CXXFLAGS = -Wall -Wextra -Werror -g -std=c++98 -fsanitize=address
+CXXFLAGS = -Wall -Wextra -Werror -g -std=c++98
 
 SRCDIR = src
 INCDIR = include
