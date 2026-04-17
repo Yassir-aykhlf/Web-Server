@@ -1,7 +1,8 @@
 #include "ConfigValidator.hpp"
 using namespace std;
 
-ConfigValidator::ConfigValidator() {
+ConfigValidator::ConfigValidator()
+{
     initializeRules();
 }
 
@@ -123,14 +124,14 @@ void ConfigValidator::validateNode(
         validateNode(node.getChildren()[i], node.getName());
 }
 
-void ConfigValidator::validate(const ConfigNode &root) {
+void ConfigValidator::validate(const ConfigNode &root)
+{
     validateNode(root, "");
 }
 
 // ==========================================
 // VALIDATOR IMPLEMENTATIONS
 // ==========================================
-
 
 bool ConfigValidator::isValidHostname(const string &hostname)
 {
