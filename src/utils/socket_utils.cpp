@@ -131,7 +131,7 @@ std::string receiveData(int socketFd, size_t maxBytes, bool &connectionClosed, b
         if (toRead == 0)
             break;
 
-        ssize_t bytesRead = recv(socketFd, buffer, toRead, 0);
+        ssize_t bytesRead = recv(socketFd, buffer, toRead, MSG_DONTWAIT);
         if (bytesRead > 0)
         {
             result.append(buffer, bytesRead);
@@ -144,10 +144,9 @@ std::string receiveData(int socketFd, size_t maxBytes, bool &connectionClosed, b
             connectionClosed = true;
             break;
         }
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            break;
-        readError = true;
-        result.clear();
+        // bytesRead < 0: with MSG_DONTWAIT or non-blocking socket, this means
+        // EAGAIN/EWOULDBLOCK (no data available) or a real error. Either way,
+        // we return what we have and let caller decide what to do.
         break;
     }
 
@@ -158,6 +157,8 @@ ssize_t sendData(int socketFd, const std::string &data, size_t offset)
 {
     if (offset >= data.size())
         return -1;
+    // Socket is already set to non-blocking, so send will not block.
+    // Return value: > 0 = bytes sent, 0 = connection closed, -1 = error
     ssize_t sent = send(socketFd, data.c_str() + offset, data.size() - offset, 0);
     return sent;
 }

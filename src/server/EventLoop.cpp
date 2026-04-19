@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <csignal>
 #include <sys/wait.h>
+#include <cerrno>
 
 EventLoop::EventLoop() : _config(NULL), _running(false), _n_fds(0), _nextClientBirthOrder(1) {}
 
@@ -242,28 +243,40 @@ void EventLoop::handleClientWrite(int index)
         return;
     }
 
-    while (!isEntireResponseSent(client))
+    // Send data in a loop until we can't send anymore or response is complete.
+    // For non-blocking sockets, send() might return -1 if the kernel buffer is full,
+    // in which case we should retry. Since we can't check errno, we just keep trying
+    // until send() fails consistently or we've sent the entire response.
+    int sendAttempts = 0;
+    int maxConsecutiveZeros = 2;
+    int consecutiveZeros = 0;
+
+    while (!isEntireResponseSent(client) && sendAttempts < 1000)
     {
+        sendAttempts++;
         ssize_t sent = sendData(fd, resp, client->getSendOffset());
-        if (sent < 0)
+
+        if (sent > 0)
         {
-            if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
-            {
-                // Socket buffer full or interrupted, wait for next POLLOUT
-                _pollfds[index].events = POLLOUT;
-                return;
-            }
-            Logger::warning("Closing client due to socket write error");
-            removeClient(index);
-            return;
+            consecutiveZeros = 0;
+            client->setSendOffset(client->getSendOffset() + sent);
+            continue;
         }
+
         if (sent == 0)
         {
-            // Socket buffer is full, need to wait for POLLOUT
-            _pollfds[index].events = POLLOUT;
-            return;
+            consecutiveZeros++;
+            if (consecutiveZeros >= maxConsecutiveZeros)
+            {
+                // Multiple send() calls returned 0, likely connection closed
+                break;
+            }
+            continue;
         }
-        client->setSendOffset(client->getSendOffset() + sent);
+
+        // sent < 0: error. With non-blocking sockets, this could be EAGAIN.
+        // We can't check errno, so we just return and wait for next POLLOUT.
+        break;
     }
 
     if (isEntireResponseSent(client))
@@ -277,6 +290,11 @@ void EventLoop::handleClientWrite(int index)
         {
             resetClientForNextRequest(client, index);
         }
+    }
+    else
+    {
+        // More data to send, keep in POLLOUT mode
+        _pollfds[index].events = POLLOUT;
     }
 }
 
@@ -404,29 +422,18 @@ Client *EventLoop::findClientForCgiPipe(int pipeFd)
 bool EventLoop::readAllAvailableData(int pipeFd, std::string &outputBuffer, bool &readError)
 {
     char buffer[BUFFER_SIZE];
-    bool pipeEof = false;
     readError = false;
-
-    while (true)
+    ssize_t bytesRead = read(pipeFd, buffer, sizeof(buffer));
+    if (bytesRead > 0)
     {
-        ssize_t bytesRead = read(pipeFd, buffer, sizeof(buffer));
-        if (bytesRead > 0)
-        {
-            outputBuffer.append(buffer, bytesRead);
-            continue;
-        }
-        if (bytesRead == 0)
-        {
-            pipeEof = true;
-            break;
-        }
-        if (bytesRead < 0)
-            break;
-        readError = true;
-        break;
+        outputBuffer.append(buffer, bytesRead);
+        return false;
     }
-
-    return pipeEof;
+    if (bytesRead == 0)
+        return true;
+    // bytesRead < 0: with non-blocking pipe, this means no data available or error.
+    // We don't check errno; we just return and let caller handle it.
+    return false;
 }
 
 void EventLoop::handleCgiPipeRead(int pipeFd)
@@ -459,34 +466,6 @@ void EventLoop::handleCgiPipeWrite(int pipeFd)
         return;
     CgiProcess &cgi = client->getCgiProcess();
 
-    while (cgi.bytesWritten < cgi.bodyToWrite.length())
-    {
-        size_t remaining = cgi.bodyToWrite.length() - cgi.bytesWritten;
-        size_t toWrite = remaining;
-
-        ssize_t written = write(pipeFd,
-                                cgi.bodyToWrite.c_str() + cgi.bytesWritten,
-                                toWrite);
-        if (written > 0)
-        {
-            cgi.bytesWritten += static_cast<size_t>(written);
-            cgi.startTime = time(NULL);
-            continue;
-        }
-
-        if (written <= 0)
-        {
-            if (written < 0)
-                return;
-            Logger::error("Failed to write to CGI pipe (fd: " + intToString(pipeFd) + ")");
-            bool keepAlive = cgi.keepAlive;
-            Location location = cgi.location;
-            unregisterCgiPipes(client);
-            sendErrorAndFinish(client, STATUS_INTERNAL_SERVER_ERROR, "CGI pipe write error", location, keepAlive);
-            return;
-        }
-    }
-
     if (cgi.bytesWritten >= cgi.bodyToWrite.length())
     {
         cgi.stdinDone = true;
@@ -495,7 +474,47 @@ void EventLoop::handleCgiPipeWrite(int pipeFd)
         _cgiPipeToClient.erase(pipeFd);
         removePollFd(pipeFd);
         cgi.pipeIn = -1;
+        return;
     }
+
+    size_t remaining = cgi.bodyToWrite.length() - cgi.bytesWritten;
+    ssize_t written = write(pipeFd,
+                            cgi.bodyToWrite.c_str() + cgi.bytesWritten,
+                            remaining);
+
+    if (written > 0)
+    {
+        cgi.bytesWritten += static_cast<size_t>(written);
+        cgi.startTime = time(NULL);
+        if (cgi.bytesWritten >= cgi.bodyToWrite.length())
+        {
+            cgi.stdinDone = true;
+            cgi.bytesWritten = 0;
+            std::string().swap(cgi.bodyToWrite);
+            _cgiPipeToClient.erase(pipeFd);
+            removePollFd(pipeFd);
+            cgi.pipeIn = -1;
+        }
+        return;
+    }
+
+    if (written < 0)
+    {
+        // written == -1: with non-blocking pipe, this could be EAGAIN (buffer full)
+        // or a real error. We don't check errno. Just return and let poll tell us
+        // when to retry. If poll keeps telling us POLLOUT but write still fails,
+        // we'll eventually hit the timeout and error out.
+        return;
+    }
+
+    Logger::error("Failed to write to CGI pipe (fd: " + intToString(pipeFd) + ")");
+    bool keepAlive = cgi.keepAlive;
+    Location location = cgi.location;
+    unregisterCgiPipes(client);
+    if (written == 0)
+        sendErrorAndFinish(client, STATUS_INTERNAL_SERVER_ERROR, "CGI pipe closed unexpectedly", location, keepAlive);
+    else
+        sendErrorAndFinish(client, STATUS_INTERNAL_SERVER_ERROR, "CGI pipe write error", location, keepAlive);
 }
 
 int EventLoop::reapChildProcess(pid_t pid)
@@ -645,6 +664,8 @@ void EventLoop::dispatchCgiPipeEvent(int index)
 
 void EventLoop::dispatchClientEvent(int index)
 {
+    bool shouldAttemptWrite = false;
+
     if (_pollfds[index].revents & (POLLERR | POLLNVAL))
     {
         int fd = _pollfds[index].fd;
@@ -658,12 +679,17 @@ void EventLoop::dispatchClientEvent(int index)
         bool hasPendingResponse = !client->getResponseBuffer().empty() &&
                                   !isEntireResponseSent(client);
         bool cgiInProgress = (client->getState() == CGI_PROCESSING);
-        if (!hasPendingResponse && !cgiInProgress)
+        bool isWriting = (client->getState() == WRITING);
+        if (!hasPendingResponse && !cgiInProgress && !isWriting)
         {
             Logger::warning("Closing client due to POLLERR/POLLNVAL without pending response/CGI");
             removeClient(index);
             return;
         }
+        // If we're WRITING, try to continue sending despite POLLERR
+        // The socket error might be recoverable or we might still be able to send
+        if (isWriting)
+            shouldAttemptWrite = true;
     }
     if ((_pollfds[index].revents & POLLHUP) && !(_pollfds[index].revents & POLLIN))
     {
@@ -678,15 +704,19 @@ void EventLoop::dispatchClientEvent(int index)
         bool hasPendingResponse = !client->getResponseBuffer().empty() &&
                                   !isEntireResponseSent(client);
         bool cgiInProgress = (client->getState() == CGI_PROCESSING);
-        if (!hasPendingResponse && !cgiInProgress)
+        bool isWriting = (client->getState() == WRITING);
+        if (!hasPendingResponse && !cgiInProgress && !isWriting)
         {
             Logger::warning("Closing client due to POLLHUP without pending response/CGI");
             removeClient(index);
             return;
         }
+        // If we're WRITING, try to continue sending despite POLLHUP
+        if (isWriting)
+            shouldAttemptWrite = true;
     }
 
-    if (_pollfds[index].revents & POLLOUT)
+    if (shouldAttemptWrite || (_pollfds[index].revents & POLLOUT))
     {
         handleClientWrite(index);
         if (index >= _n_fds)
@@ -697,7 +727,6 @@ void EventLoop::dispatchClientEvent(int index)
         handleClientRead(index);
     }
 }
-
 void EventLoop::run()
 {
     if (!_config)
