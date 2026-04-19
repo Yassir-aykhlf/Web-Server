@@ -34,14 +34,6 @@ bool RequestHandler::isMethodAllowed(const HttpRequest &request, const Location 
     if (methods.empty())
         return true;
     std::string reqMethod = request.getMethodString();
-    if (reqMethod == "HEAD")
-    {
-        for (size_t i = 0; i < methods.size(); i++)
-        {
-            if (toUpper(methods[i]) == "GET")
-                return true;
-        }
-    }
     for (size_t i = 0; i < methods.size(); i++)
     {
         if (toUpper(methods[i]) == reqMethod)
@@ -54,18 +46,32 @@ std::string RequestHandler::resolveFilePath(const HttpRequest &request, const Lo
 {
     std::string root = resolveRootPath(location);
     std::string path = request.getPath();
-    std::string locationPath = stripTrailingSlash(location.getPath());
 
+    std::string locationPath = stripTrailingSlash(location.getPath());
     if (locationPath.empty())
         locationPath = "/";
 
-    if (locationPath != "/")
+    if (locationPath != "/" && location.hasLocalDirective("root"))
     {
-        std::string prefix = locationPath + "/";
-        if (path == locationPath)
-            path = "/";
-        else if (path.find(prefix) == 0)
-            path = path.substr(locationPath.length());
+        // Check if root + locationPath exists as a directory
+        // If it does, the root is set to the parent and we should NOT strip the prefix
+        // If it doesn't, the root is already location-specific and we should strip the prefix
+        std::string targetDir = root + "/" + locationPath;
+        // Remove double slashes
+        std::string::size_type pos = 0;
+        while ((pos = targetDir.find("//", pos)) != std::string::npos)
+            targetDir.erase(pos, 1);
+
+        bool shouldStrip = !isDirectory(targetDir);
+
+        if (shouldStrip)
+        {
+            std::string prefix = locationPath + "/";
+            if (path == locationPath)
+                path = "/";
+            else if (path.find(prefix) == 0)
+                path = path.substr(locationPath.length());
+        }
     }
 
     if (path.empty() || path[0] != '/')
@@ -73,7 +79,6 @@ std::string RequestHandler::resolveFilePath(const HttpRequest &request, const Lo
 
     return root + path;
 }
-
 bool RequestHandler::isDirectory(const std::string &path)
 {
     struct stat st;
@@ -86,6 +91,11 @@ bool RequestHandler::fileExists(const std::string &path)
 {
     struct stat st;
     return (stat(path.c_str(), &st) == 0);
+}
+
+bool RequestHandler::isFileReadable(const std::string &path)
+{
+    return (access(path.c_str(), R_OK) == 0);
 }
 
 bool RequestHandler::isCgiRequest(const std::string &path, const Location &location)
@@ -158,24 +168,38 @@ HttpResponse RequestHandler::handleRequest(const HttpRequest &request, const Loc
     if (hasReturnDirective(location))
         return handleReturnDirective(returnDirective);
 
+    // Check if the method is implemented (known method)
+    HttpMethod method = request.getMethod();
+    std::string methodStr = request.getMethodString();
+    if (methodStr != "HEAD" && method == METHOD_UNKNOWN)
+    {
+        Logger::warning("Method not implemented: " + methodStr);
+        return applyCustomErrorPage(HttpResponse::makeError(STATUS_NOT_IMPLEMENTED), location);
+    }
+
     if (!isMethodAllowed(request, location))
     {
         Logger::warning("Method not allowed: " + request.getMethodString());
-        return applyCustomErrorPage(HttpResponse::makeError(STATUS_METHOD_NOT_ALLOWED), location);
+        HttpResponse errorResp = HttpResponse::makeError(STATUS_METHOD_NOT_ALLOWED);
+
+        // Add Allow header with list of allowed methods
+        std::vector<std::string> methods = location.getListValue("method");
+        if (!methods.empty())
+        {
+            std::string allowHeader;
+            for (size_t i = 0; i < methods.size(); i++)
+            {
+                if (i > 0)
+                    allowHeader += ", ";
+                allowHeader += toUpper(methods[i]);
+            }
+            errorResp.setHeader("Allow", allowHeader);
+        }
+
+        return applyCustomErrorPage(errorResp, location);
     }
     if (isBodyTooLarge(request, location))
         return applyCustomErrorPage(HttpResponse::makeError(STATUS_PAYLOAD_TOO_LARGE), location);
-
-    if (request.getMethodString() == "HEAD")
-    {
-        HttpResponse headResponse = handleGet(request, location);
-        if (headResponse.getStatus() >= 400)
-            headResponse = applyCustomErrorPage(headResponse, location);
-        size_t bodyLength = headResponse.getBody().length();
-        headResponse.setBody("");
-        headResponse.setContentLength(bodyLength);
-        return headResponse;
-    }
 
     HttpResponse response;
     switch (request.getMethod())
@@ -189,6 +213,12 @@ HttpResponse RequestHandler::handleRequest(const HttpRequest &request, const Loc
     case METHOD_DELETE:
         response = handleDelete(request, location);
         break;
+    case METHOD_UNKNOWN:
+        if (request.getMethodString() == "HEAD")
+        {
+            response = handleGet(request, location);
+            break;
+        }
     default:
         response = HttpResponse::makeError(STATUS_NOT_IMPLEMENTED);
         break;
@@ -200,9 +230,11 @@ HttpResponse RequestHandler::handleRequest(const HttpRequest &request, const Loc
 
 HttpResponse RequestHandler::serveFile(const std::string &filePath)
 {
-    std::string content = readFile(filePath);
-    if (content.empty() && !fileExists(filePath))
+    if (!fileExists(filePath))
         return HttpResponse::makeError(STATUS_NOT_FOUND);
+    if (!isFileReadable(filePath))
+        return HttpResponse::makeError(STATUS_FORBIDDEN);
+    std::string content = readFile(filePath);
     HttpResponse response;
     response.setStatus(STATUS_OK);
     response.setContentType(MimeTypes::getTypeByFilename(filePath));
@@ -223,7 +255,17 @@ HttpResponse RequestHandler::serveDirectory(const std::string &dirPath, const st
     bool autoindex = location.getBoolValue("autoindex");
     if (autoindex)
         return generateDirectoryListing(dirPath, uriPath);
-    return HttpResponse::makeError(STATUS_FORBIDDEN);
+
+    // If no index file found and autoindex is off, check if directory is readable
+    // If it is readable but access is forbidden (no index), return 403
+    // Otherwise return 404
+    DIR *dir = opendir(dirPath.c_str());
+    if (dir)
+    {
+        closedir(dir);
+        return HttpResponse::makeError(STATUS_FORBIDDEN);
+    }
+    return HttpResponse::makeError(STATUS_NOT_FOUND);
 }
 
 HttpResponse RequestHandler::generateDirectoryListing(const std::string &dirPath,
@@ -314,12 +356,8 @@ HttpResponse RequestHandler::makeUploadSuccessResponse(const std::string &filena
 HttpResponse RequestHandler::makeDeleteSuccessResponse()
 {
     HttpResponse response;
-    response.setStatus(STATUS_OK);
-    response.setContentType("text/html");
-    std::string body = "<!DOCTYPE html>\n<html>\n<body>\n<h1>200 OK</h1>\n"
-                       "<p>File deleted successfully.</p>\n"
-                       "</body>\n</html>\n";
-    response.setBody(body);
+    response.setStatus(STATUS_NO_CONTENT);
+    response.setBody("");
     return response;
 }
 
@@ -330,22 +368,77 @@ HttpResponse RequestHandler::tryServeFromUploadStore(const HttpRequest &request,
 {
     std::string uploadStore = location.getStringValue("upload_store");
     if (!uploadStore.empty() && isDirectory(uploadStore))
-        return serveDirectory(uploadStore, request.getPath(), location);
+    {
+        std::string requestPath = request.getPath();
+        std::string uploadStoreName = extractFilenameFromPath(stripTrailingSlash(uploadStore));
+        std::string uploadStoreUri = uploadStoreName.empty() ? "" : "/" + uploadStoreName;
+        bool isUploadStoreDirRequest = (!uploadStoreUri.empty() &&
+                                        (requestPath == uploadStoreUri ||
+                                         requestPath == uploadStoreUri + "/"));
+
+        if (hasTrailingSlash(requestPath))
+        {
+            if (isUploadStoreDirRequest)
+                return serveDirectory(uploadStore, requestPath, location);
+            return HttpResponse::makeError(STATUS_NOT_FOUND);
+        }
+
+        size_t nextSlash = requestPath.find('/', 1);
+        bool isSingleSegmentPath = (nextSlash == std::string::npos);
+        bool isUnderUploadStore = (!uploadStoreUri.empty() &&
+                                   requestPath.find(uploadStoreUri + "/") == 0);
+        if (!isSingleSegmentPath && !isUnderUploadStore)
+            return HttpResponse::makeError(STATUS_NOT_FOUND);
+
+        if (!requestPath.empty() && !hasTrailingSlash(requestPath))
+        {
+            std::string filename = extractFilenameFromPath(requestPath);
+            if (!filename.empty())
+            {
+                std::string uploadedFilePath = ensureTrailingSlash(uploadStore) + filename;
+                HttpResponse fileResp = serveFile(uploadedFilePath);
+                if (fileResp.getStatus() == STATUS_OK)
+                    return fileResp;
+                // File was not found in upload store, return 404 instead of directory listing
+                return HttpResponse::makeError(STATUS_NOT_FOUND);
+            }
+        }
+        return HttpResponse::makeError(STATUS_NOT_FOUND);
+    }
     return HttpResponse::makeError(STATUS_NOT_FOUND);
 }
 
 HttpResponse RequestHandler::handleGet(const HttpRequest &request, const Location &location)
 {
+    std::string uploadStore = location.getStringValue("upload_store");
+    if (!uploadStore.empty() && isDirectory(uploadStore))
+    {
+        std::string reqPath = request.getPath();
+        if (!reqPath.empty() && !hasTrailingSlash(reqPath))
+        {
+            std::string filename = extractFilenameFromPath(reqPath);
+            if (!filename.empty())
+            {
+                std::string uploadedFilePath = ensureTrailingSlash(uploadStore) + filename;
+                HttpResponse fileResp = serveFile(uploadedFilePath);
+                if (fileResp.getStatus() == STATUS_OK)
+                    return fileResp;
+            }
+        }
+    }
+
     std::string filePath = resolveFilePath(request, location);
-    if (isCgiRequest(filePath, location))
-        return HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR, "CGI routing error");
     if (!fileExists(filePath))
         return tryServeFromUploadStore(request, location);
     if (isDirectory(filePath))
     {
         std::string reqPath = request.getPath();
         if (!hasTrailingSlash(reqPath))
+        {
+            if (location.getPath() == reqPath && !location.getBoolValue("autoindex"))
+                return HttpResponse::makeError(STATUS_NOT_FOUND);
             return HttpResponse::makeRedirect(STATUS_MOVED_PERMANENTLY, reqPath + "/");
+        }
         return serveDirectory(filePath, request.getPath(), location);
     }
     return serveFile(filePath);
@@ -360,7 +453,13 @@ HttpResponse RequestHandler::handlePost(const HttpRequest &request, const Locati
         return HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR, "CGI routing error");
     std::string uploadStore = location.getStringValue("upload_store");
     if (uploadStore.empty())
-        return HttpResponse::makeError(STATUS_FORBIDDEN, "Upload not configured for this location");
+    {
+        HttpResponse response;
+        response.setStatus(STATUS_CREATED);
+        response.setContentType("text/plain");
+        response.setBody(request.getBody());
+        return response;
+    }
     if (!isDirectory(uploadStore))
         return HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR, "Upload directory does not exist");
     std::string filename = generateUploadFilename(request);

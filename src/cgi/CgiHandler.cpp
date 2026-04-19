@@ -32,6 +32,7 @@ std::vector<std::string> CgiHandler::buildEnv(const HttpRequest &request,
     env.push_back("SCRIPT_FILENAME=" + scriptPath);
     env.push_back("SCRIPT_NAME=" + request.getPath());
     env.push_back("PATH_INFO=" + request.getPath());
+    env.push_back("REQUEST_URI=" + request.getUri());
     env.push_back("SERVER_PROTOCOL=" + request.getVersion());
     env.push_back("SERVER_SOFTWARE=" SERVER_NAME);
     env.push_back("SERVER_NAME=" + request.getHost());
@@ -79,6 +80,10 @@ void CgiHandler::applyCgiHeader(const std::string &name, const std::string &valu
         if (!hasStatus)
             response.setStatus(STATUS_FOUND);
     }
+    else if (lowerName == "content-length" || lowerName == "connection")
+    {
+        return;
+    }
     else
     {
         response.setHeader(name, value);
@@ -123,6 +128,46 @@ void CgiHandler::parseCgiOutput(const std::string &output, HttpResponse &respons
     response.setBody(body);
 }
 
+void CgiHandler::parseCgiHeadersOnly(const std::string &output, HttpResponse &response,
+                                     size_t &bodyStart)
+{
+    size_t headerEnd;
+    std::string separator = findHeaderBodySeparator(output, headerEnd);
+    if (separator.empty())
+    {
+        response.setStatus(STATUS_OK);
+        response.setContentType("text/html");
+        bodyStart = 0;
+        return;
+    }
+
+    std::string headerSection = output.substr(0, headerEnd);
+    bodyStart = headerEnd + (separator == "\r\n" ? 4 : 2);
+
+    std::istringstream iss(headerSection);
+    std::string line;
+    bool hasStatus = false;
+    bool hasContentType = false;
+    while (std::getline(iss, line))
+    {
+        if (!line.empty() && line[line.length() - 1] == '\r')
+            line = line.substr(0, line.length() - 1);
+        if (line.empty())
+            continue;
+        size_t colonPos = line.find(':');
+        if (colonPos == std::string::npos)
+            continue;
+        std::string name = trim(line.substr(0, colonPos));
+        std::string value = trim(line.substr(colonPos + 1));
+        applyCgiHeader(name, value, response, hasStatus, hasContentType);
+    }
+
+    if (!hasStatus)
+        response.setStatus(STATUS_OK);
+    if (!hasContentType)
+        response.setContentType("text/html");
+}
+
 std::string CgiHandler::resolveAbsoluteScriptPath(const std::string &scriptPath)
 {
     char resolvedPath[PATH_MAX];
@@ -133,7 +178,7 @@ std::string CgiHandler::resolveAbsoluteScriptPath(const std::string &scriptPath)
 
 bool CgiHandler::createCgiPipes(int pipeIn[2], int pipeOut[2], HttpResponse &errorResponse)
 {
-    if (pipe(pipeIn) < 0 || pipe(pipeOut) < 0)
+    if (pipe2(pipeIn, O_NONBLOCK) < 0 || pipe2(pipeOut, O_NONBLOCK) < 0)
     {
         Logger::error("Failed to create pipes for CGI");
         errorResponse = HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR);
@@ -204,13 +249,13 @@ int CgiHandler::parseCgiTimeout(const Location &location)
 }
 
 void CgiHandler::populateCgiProcess(CgiProcess &cgi, pid_t pid, int pipeIn, int pipeOut,
-                                    const HttpRequest &request, const Location &location)
+                                    std::string &requestBody, const Location &location)
 {
     cgi.pid = pid;
     cgi.pipeIn = pipeIn;
     cgi.pipeOut = pipeOut;
     cgi.outputBuffer.clear();
-    cgi.bodyToWrite = request.getBody();
+    cgi.bodyToWrite.swap(requestBody);
     cgi.bytesWritten = 0;
     cgi.stdinDone = cgi.bodyToWrite.empty();
     cgi.startTime = time(NULL);
@@ -224,7 +269,8 @@ void CgiHandler::populateCgiProcess(CgiProcess &cgi, pid_t pid, int pipeIn, int 
 }
 
 bool CgiHandler::startCgi(const HttpRequest &request, const Location &location,
-                          const std::string &scriptPath, CgiProcess &cgi,
+                          const std::string &scriptPath, std::string &requestBody,
+                          CgiProcess &cgi,
                           HttpResponse &errorResponse)
 {
     std::string interpreter = findInterpreter(scriptPath, location);
@@ -266,7 +312,7 @@ bool CgiHandler::startCgi(const HttpRequest &request, const Location &location,
         errorResponse = HttpResponse::makeError(STATUS_INTERNAL_SERVER_ERROR, "CGI pipe setup failed");
         return false;
     }
-    populateCgiProcess(cgi, pid, pipeIn[1], pipeOut[0], request, location);
+    populateCgiProcess(cgi, pid, pipeIn[1], pipeOut[0], requestBody, location);
     Logger::info("CGI process started (pid: " + intToString(pid) + ") for: " + absScriptPath);
     return true;
 }

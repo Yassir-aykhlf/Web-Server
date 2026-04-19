@@ -21,6 +21,7 @@ public:
   Location(const ConfigNode &loc, const ConfigNode &server);
 
   std::string getPath() const;
+  bool hasLocalDirective(const std::string &key) const;
   std::string getStringValue(const std::string &key) const;
   bool getBoolValue(const std::string &key) const;
   std::vector<std::string> getListValue(const std::string &key) const;

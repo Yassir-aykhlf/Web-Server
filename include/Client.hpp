@@ -51,11 +51,13 @@ public:
     const std::string &getRequestBuffer() const;
     void clearRequestBuffer();
     void appendToResponseBuffer(const std::string &data);
+    void appendToResponseBuffer(const char *data, size_t len);
     const std::string &getResponseBuffer() const;
     void clearResponseBuffer();
     ClientState getState() const;
     void setState(ClientState state);
     bool isRequestComplete() const;
+    bool hasIncompleteRequest() const;
     void buildResponse();
     void setSendOffset(size_t value);
     size_t getSendOffset() const;
@@ -73,13 +75,16 @@ private:
     size_t _sendOffset;
     Config *_config;
     CgiProcess _cgiProcess;
+    std::string _cgiBodyBuffer;
+    HttpParser *_parser;
+    size_t _parsedOffset;
 
     void buildParseErrorResponse(const HttpParser &parser);
     size_t findMatchingServerIndex(const std::vector<ServerConfig> &servers) const;
     std::string extractHostname(const HttpRequest &request) const;
     HttpResponse buildErrorWithCustomPage(int statusCode, const Location &location,
                                           bool keepAlive);
-    void handleCgiRequest(const HttpRequest &request, const Location &location,
+    void handleCgiRequest(HttpRequest &request, const Location &location,
                           const std::string &filePath);
     void buildFinalResponse(HttpResponse response, const HttpRequest &request);
     size_t findContentLength() const;

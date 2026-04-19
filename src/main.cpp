@@ -15,7 +15,7 @@ int main(int argc, char **argv)
     if (argc == 2)
         configFile = argv[1];
     else
-        configFile = "Configs/default.conf";
+        configFile = "configs/default.conf";
     try
     {
         Config config(configFile);

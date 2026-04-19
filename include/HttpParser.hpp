@@ -28,6 +28,7 @@ public:
 
     ParseResult parse(const char *data, size_t len);
     const HttpRequest &getRequest() const;
+    HttpRequest &getRequestMutable();
     const std::string &getRemainingBuffer() const;
     ParserState getState() const;
     int getErrorCode() const;

@@ -28,6 +28,11 @@ string Location::getPath() const
   return "/";
 }
 
+bool Location::hasLocalDirective(const std::string &key) const
+{
+  return findDirective(location_, key) != NULL;
+}
+
 const ConfigNode *Location::findDirective(const ConfigNode &node, const string &key) const
 {
   const vector<ConfigNode> &children = node.getChildren();
@@ -123,7 +128,7 @@ string Location::getDefaultString(const string &key) const
   if (key == "root")
     return "/var/www/html";
   if (key == "client_max_body_size")
-    return "1000m";
+    return "100m";
   if (key == "client_body_timeout")
     return "60s";
   if (key == "cgi_timeout")

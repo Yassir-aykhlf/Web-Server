@@ -23,6 +23,7 @@ void Server::handleSignal(int sig) {
 
 bool Server::init() {
     signal(SIGPIPE, SIG_IGN);
+    
     signal(SIGINT, handleSignal);
     signal(SIGTERM, handleSignal);
     _instance = this;

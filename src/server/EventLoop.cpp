@@ -9,11 +9,10 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
-#include <cerrno>
 #include <csignal>
 #include <sys/wait.h>
 
-EventLoop::EventLoop() : _config(NULL), _running(false), _n_fds(0) {}
+EventLoop::EventLoop() : _config(NULL), _running(false), _n_fds(0), _nextClientBirthOrder(1) {}
 
 EventLoop::~EventLoop() {}
 
@@ -32,6 +31,7 @@ void EventLoop::removeClient(int index)
         delete _clients[fd];
     }
     _clients.erase(fd);
+    _clientBirthOrder.erase(fd);
     close(fd);
     _pollfds[index] = _pollfds.back();
     _pollfds.pop_back();
@@ -40,12 +40,27 @@ void EventLoop::removeClient(int index)
 
 void EventLoop::acceptNewConnection(int listenerFd)
 {
+    bool atCapacity = (activeClientCount() >= MAX_KEEP_ALIVE_CLIENTS);
+    if (activeClientCount() >= MAX_KEEP_ALIVE_CLIENTS)
+    {
+        if (!evictOldestKeepAliveClient())
+            Logger::warning("Client capacity reached and no evictable keep-alive client found");
+    }
+
     ClientConnection conn = waitForClient(listenerFd);
     if (conn.fd < 0)
     {
         Logger::error("Failed to accept connection");
         return;
     }
+
+    if (atCapacity && activeClientCount() >= MAX_KEEP_ALIVE_CLIENTS)
+    {
+        Logger::warning("Rejecting new connection at capacity (fd: " + intToString(conn.fd) + ")");
+        close(conn.fd);
+        return;
+    }
+
     Logger::info("Accepted connection from " + conn.ipAddress + ":" + intToString(conn.port) + " (fd: " + intToString(conn.fd) + ")");
     non_blocking(conn.fd);
     struct pollfd client_pfd;
@@ -54,38 +69,154 @@ void EventLoop::acceptNewConnection(int listenerFd)
     client_pfd.revents = 0;
     _pollfds.push_back(client_pfd);
     _clients[conn.fd] = new Client(conn.fd, _config, listenerFd);
+    _clientBirthOrder[conn.fd] = _nextClientBirthOrder++;
     _n_fds++;
+}
+
+size_t EventLoop::activeClientCount() const
+{
+    size_t count = 0;
+    for (std::map<int, Client *>::const_iterator it = _clients.begin(); it != _clients.end(); ++it)
+    {
+        if (it->second != NULL)
+            count++;
+    }
+    return count;
+}
+
+int EventLoop::findOldestEvictableClientPollIndex() const
+{
+    int bestIdleIndex = -1;
+    unsigned long long bestIdleOrder = 0;
+
+    for (int i = 0; i < _n_fds; i++)
+    {
+        int fd = _pollfds[i].fd;
+        if (isListenerSocket(fd) || isCgiPipeFd(fd))
+            continue;
+
+        std::map<int, Client *>::const_iterator it = _clients.find(fd);
+        if (it == _clients.end() || it->second == NULL)
+            continue;
+
+        std::map<int, unsigned long long>::const_iterator orderIt = _clientBirthOrder.find(fd);
+        if (orderIt == _clientBirthOrder.end())
+            continue;
+        unsigned long long order = orderIt->second;
+
+        Client *client = it->second;
+        bool idleKeepAlive = (client->getState() == READING &&
+                              client->getRequestBuffer().empty() &&
+                              client->getResponseBuffer().empty());
+        if (!idleKeepAlive)
+            continue;
+
+        if (bestIdleIndex == -1 || order < bestIdleOrder)
+        {
+            bestIdleIndex = i;
+            bestIdleOrder = order;
+        }
+    }
+
+    return bestIdleIndex;
+}
+
+bool EventLoop::evictOldestKeepAliveClient()
+{
+    int pollIndex = findOldestEvictableClientPollIndex();
+    if (pollIndex < 0 || pollIndex >= _n_fds)
+        return false;
+
+    int fd = _pollfds[pollIndex].fd;
+    Logger::warning("Evicting oldest keep-alive client (fd: " + intToString(fd) + ") due to capacity pressure");
+    removeClient(pollIndex);
+    return true;
 }
 
 void EventLoop::handleClientRead(int index)
 {
     int fd = _pollfds[index].fd;
+    Client *client = _clients[fd];
+
+    // If we're in the middle of writing a response, skip reading new data
+    // to avoid interrupting large response transmission
+
     bool connectionClosed = false;
-    std::string data = receiveData(fd, 1024, connectionClosed);
-    if (connectionClosed)
+    bool readError = false;
+    std::string data = receiveData(fd, BUFFER_SIZE, connectionClosed, readError);
+    if (readError)
     {
+        Logger::warning("Closing client due to socket read error");
         removeClient(index);
         return;
     }
-    _clients[fd]->appendToRequestBuffer(data);
-    if (_clients[fd]->isRequestComplete())
+    if (connectionClosed)
     {
-        size_t bufferSizeBefore = _clients[fd]->getResponseBuffer().length();
-        _clients[fd]->buildResponse();
-        size_t bufferSizeAfter = _clients[fd]->getResponseBuffer().length();
+        if (client)
+        {
+            bool hasPendingResponse = !client->getResponseBuffer().empty() &&
+                                      !isEntireResponseSent(client);
+            bool cgiInProgress = (client->getState() == CGI_PROCESSING);
 
-        if (_clients[fd]->getState() == CGI_PROCESSING)
-        {
-            registerCgiPipes(_clients[fd]);
-            _pollfds[index].events = 0;
+            if (cgiInProgress)
+            {
+                _pollfds[index].events = 0;
+                return;
+            }
+            if (hasPendingResponse)
+            {
+                _pollfds[index].events = POLLOUT;
+                return;
+            }
+
+            if (client->hasIncompleteRequest())
+            {
+                client->appendToResponseBuffer(
+                    HttpResponse::makeError(STATUS_BAD_REQUEST, "Incomplete request body").build());
+                client->setState(WRITING);
+                _pollfds[index].events = POLLOUT;
+                return;
+            }
+
+            if (!client->getRequestBuffer().empty())
+            {
+                size_t bufferSizeBefore = client->getResponseBuffer().length();
+                client->buildResponse();
+                size_t bufferSizeAfter = client->getResponseBuffer().length();
+
+                if (client->getState() == CGI_PROCESSING)
+                {
+                    registerCgiPipes(client);
+                    _pollfds[index].events = 0;
+                    return;
+                }
+                if (bufferSizeAfter > bufferSizeBefore)
+                {
+                    client->setState(WRITING);
+                    _pollfds[index].events = POLLOUT;
+                    return;
+                }
+            }
         }
-        else if (bufferSizeAfter > bufferSizeBefore)
-        {
-            // Response was actually built, wait to send it
-            _clients[fd]->setState(WRITING);
-            _pollfds[index].events = POLLOUT;
-        }
-        // else: parser was incomplete, stay in READING and wait for more data
+        removeClient(index);
+        return;
+    }
+    if (data.empty())
+        return;
+    client->appendToRequestBuffer(data);
+    size_t bufferSizeBefore = client->getResponseBuffer().length();
+    client->buildResponse();
+    size_t bufferSizeAfter = client->getResponseBuffer().length();
+
+    if (client->getState() == CGI_PROCESSING)
+    {
+        registerCgiPipes(client);
+        _pollfds[index].events = 0;
+    }
+    else if (bufferSizeAfter > bufferSizeBefore)
+    {
+        client->setState(WRITING);
+        _pollfds[index].events = POLLOUT;
     }
 }
 
@@ -93,23 +224,43 @@ void EventLoop::handleClientWrite(int index)
 {
     int fd = _pollfds[index].fd;
     Client *client = _clients[fd];
-    const std::string &resp = client->getResponseBuffer();
-    if (resp.empty())
+
+    if (!client)
+        return;
+
+    if (client->getState() == CGI_PROCESSING)
     {
-        // Empty response buffer - socket is writable but we have nothing to send yet
-        // This can happen on a freshly accepted connection before the request is parsed
-        // Just ignore this event and wait for data to arrive
+        _pollfds[index].events = 0;
         return;
     }
 
-    // If response is already fully sent, skip send and handle connection state
-    if (!isEntireResponseSent(client))
+    const std::string &resp = client->getResponseBuffer();
+    if (resp.empty())
+    {
+        client->setState(READING);
+        _pollfds[index].events = POLLIN;
+        return;
+    }
+
+    while (!isEntireResponseSent(client))
     {
         ssize_t sent = sendData(fd, resp, client->getSendOffset());
-        if (sent <= 0)
+        if (sent < 0)
         {
-            Logger::error("Failed to send data to (fd: " + intToString(fd) + ")");
+            if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+            {
+                // Socket buffer full or interrupted, wait for next POLLOUT
+                _pollfds[index].events = POLLOUT;
+                return;
+            }
+            Logger::warning("Closing client due to socket write error");
             removeClient(index);
+            return;
+        }
+        if (sent == 0)
+        {
+            // Socket buffer is full, need to wait for POLLOUT
+            _pollfds[index].events = POLLOUT;
             return;
         }
         client->setSendOffset(client->getSendOffset() + sent);
@@ -119,6 +270,7 @@ void EventLoop::handleClientWrite(int index)
     {
         if (shouldCloseConnection(resp))
         {
+            Logger::warning("Closing client due to Connection: close after full response");
             removeClient(index);
         }
         else
@@ -135,7 +287,10 @@ bool EventLoop::isEntireResponseSent(Client *client) const
 
 bool EventLoop::shouldCloseConnection(const std::string &response) const
 {
-    return response.find("Connection: close") != std::string::npos;
+    size_t headerEnd = response.find("\r\n\r\n");
+    std::string headerPart = (headerEnd == std::string::npos) ? response : response.substr(0, headerEnd);
+    std::string lowerHeaders = toLower(headerPart);
+    return lowerHeaders.find("connection: close") != std::string::npos;
 }
 
 void EventLoop::resetClientForNextRequest(Client *client, int pollIndex)
@@ -246,10 +401,12 @@ Client *EventLoop::findClientForCgiPipe(int pipeFd)
     return _clients[clientFd];
 }
 
-bool EventLoop::readAllAvailableData(int pipeFd, std::string &outputBuffer)
+bool EventLoop::readAllAvailableData(int pipeFd, std::string &outputBuffer, bool &readError)
 {
     char buffer[BUFFER_SIZE];
     bool pipeEof = false;
+    readError = false;
+
     while (true)
     {
         ssize_t bytesRead = read(pipeFd, buffer, sizeof(buffer));
@@ -263,8 +420,12 @@ bool EventLoop::readAllAvailableData(int pipeFd, std::string &outputBuffer)
             pipeEof = true;
             break;
         }
+        if (bytesRead < 0)
+            break;
+        readError = true;
         break;
     }
+
     return pipeEof;
 }
 
@@ -274,7 +435,19 @@ void EventLoop::handleCgiPipeRead(int pipeFd)
     if (!client)
         return;
     CgiProcess &cgi = client->getCgiProcess();
-    bool pipeEof = readAllAvailableData(pipeFd, cgi.outputBuffer);
+    size_t oldSize = cgi.outputBuffer.size();
+    bool readError = false;
+    bool pipeEof = readAllAvailableData(pipeFd, cgi.outputBuffer, readError);
+    if (readError)
+    {
+        bool keepAlive = cgi.keepAlive;
+        Location location = cgi.location;
+        unregisterCgiPipes(client);
+        sendErrorAndFinish(client, STATUS_INTERNAL_SERVER_ERROR, "CGI pipe read error", location, keepAlive);
+        return;
+    }
+    if (cgi.outputBuffer.size() > oldSize)
+        cgi.startTime = time(NULL);
     if (pipeEof)
         finalizeCgiResponse(client);
 }
@@ -285,24 +458,40 @@ void EventLoop::handleCgiPipeWrite(int pipeFd)
     if (!client)
         return;
     CgiProcess &cgi = client->getCgiProcess();
-    ssize_t written = write(pipeFd,
-                            cgi.bodyToWrite.c_str() + cgi.bytesWritten,
-                            cgi.bodyToWrite.length() - cgi.bytesWritten);
-    if (written > 0)
+
+    while (cgi.bytesWritten < cgi.bodyToWrite.length())
     {
-        cgi.bytesWritten += static_cast<size_t>(written);
-        if (cgi.bytesWritten >= cgi.bodyToWrite.length())
+        size_t remaining = cgi.bodyToWrite.length() - cgi.bytesWritten;
+        size_t toWrite = remaining;
+
+        ssize_t written = write(pipeFd,
+                                cgi.bodyToWrite.c_str() + cgi.bytesWritten,
+                                toWrite);
+        if (written > 0)
         {
-            cgi.stdinDone = true;
-            _cgiPipeToClient.erase(pipeFd);
-            removePollFd(pipeFd);
-            cgi.pipeIn = -1;
+            cgi.bytesWritten += static_cast<size_t>(written);
+            cgi.startTime = time(NULL);
+            continue;
+        }
+
+        if (written <= 0)
+        {
+            if (written < 0)
+                return;
+            Logger::error("Failed to write to CGI pipe (fd: " + intToString(pipeFd) + ")");
+            bool keepAlive = cgi.keepAlive;
+            Location location = cgi.location;
+            unregisterCgiPipes(client);
+            sendErrorAndFinish(client, STATUS_INTERNAL_SERVER_ERROR, "CGI pipe write error", location, keepAlive);
+            return;
         }
     }
-    else if (written < 0)
+
+    if (cgi.bytesWritten >= cgi.bodyToWrite.length())
     {
-        Logger::error("Failed to write to CGI stdin pipe");
         cgi.stdinDone = true;
+        cgi.bytesWritten = 0;
+        std::string().swap(cgi.bodyToWrite);
         _cgiPipeToClient.erase(pipeFd);
         removePollFd(pipeFd);
         cgi.pipeIn = -1;
@@ -332,7 +521,8 @@ void EventLoop::finalizeCgiResponse(Client *client)
     pid_t savedPid = cgi.pid;
     int childStatus = reapChildProcess(cgi.pid);
     cgi.pid = -1;
-    std::string output = cgi.outputBuffer;
+    std::string output;
+    output.swap(cgi.outputBuffer);
     bool keepAlive = cgi.keepAlive;
     Location location = cgi.location;
     unregisterCgiPipes(client);
@@ -343,10 +533,19 @@ void EventLoop::finalizeCgiResponse(Client *client)
         return;
     }
     HttpResponse response;
-    CgiHandler::parseCgiOutput(output, response);
+    size_t bodyStart = 0;
+    CgiHandler::parseCgiHeadersOnly(output, response, bodyStart);
+    size_t bodyLength = 0;
+    if (bodyStart < output.length())
+        bodyLength = output.length() - bodyStart;
+    response.setContentLength(bodyLength);
     response.setConnection(keepAlive);
+
     client->clearResponseBuffer();
     client->appendToResponseBuffer(response.build());
+    if (bodyLength > 0)
+        client->appendToResponseBuffer(output.data() + bodyStart, bodyLength);
+
     client->setSendOffset(0);
     client->setState(WRITING);
     setPollEvents(client->getFd(), POLLOUT);
@@ -446,17 +645,56 @@ void EventLoop::dispatchCgiPipeEvent(int index)
 
 void EventLoop::dispatchClientEvent(int index)
 {
-    if (_pollfds[index].revents & POLLIN)
+    if (_pollfds[index].revents & (POLLERR | POLLNVAL))
     {
-        handleClientRead(index);
-        if (index >= _n_fds)
+        int fd = _pollfds[index].fd;
+        Client *client = _clients[fd];
+        if (!client)
+        {
+            Logger::warning("Closing client due to POLLERR/POLLNVAL with null client");
+            removeClient(index);
             return;
-        if (_pollfds[index].revents & POLLOUT)
+        }
+        bool hasPendingResponse = !client->getResponseBuffer().empty() &&
+                                  !isEntireResponseSent(client);
+        bool cgiInProgress = (client->getState() == CGI_PROCESSING);
+        if (!hasPendingResponse && !cgiInProgress)
+        {
+            Logger::warning("Closing client due to POLLERR/POLLNVAL without pending response/CGI");
+            removeClient(index);
             return;
+        }
     }
+    if ((_pollfds[index].revents & POLLHUP) && !(_pollfds[index].revents & POLLIN))
+    {
+        int fd = _pollfds[index].fd;
+        Client *client = _clients[fd];
+        if (!client)
+        {
+            Logger::warning("Closing client due to POLLHUP with null client");
+            removeClient(index);
+            return;
+        }
+        bool hasPendingResponse = !client->getResponseBuffer().empty() &&
+                                  !isEntireResponseSent(client);
+        bool cgiInProgress = (client->getState() == CGI_PROCESSING);
+        if (!hasPendingResponse && !cgiInProgress)
+        {
+            Logger::warning("Closing client due to POLLHUP without pending response/CGI");
+            removeClient(index);
+            return;
+        }
+    }
+
     if (_pollfds[index].revents & POLLOUT)
     {
         handleClientWrite(index);
+        if (index >= _n_fds)
+            return;
+    }
+    if (_pollfds[index].revents & POLLIN)
+    {
+        handleClientRead(index);
     }
 }
 
@@ -485,7 +723,9 @@ void EventLoop::run()
         {
             if (_pollfds[i].revents == 0)
                 continue;
+
             int fd = _pollfds[i].fd;
+
             if (isListenerSocket(fd))
             {
                 dispatchListenerEvent(i);
@@ -498,30 +738,51 @@ void EventLoop::run()
                     break;
                 continue;
             }
+
             dispatchClientEvent(i);
             if (i >= _n_fds)
                 break;
         }
     }
-    Logger::info("EventLoop stopped");
-}
-
-void EventLoop::cleanup()
-{
-    for (size_t i = 0; i < _pollfds.size(); ++i)
-    {
-        close(_pollfds[i].fd);
-    }
-    _pollfds.clear();
-    for (std::map<int, Client *>::iterator it = _clients.begin(); it != _clients.end(); ++it)
-    {
-        delete it->second;
-    }
-    _clients.clear();
-    _cgiPipeToClient.clear();
+    cleanup();
 }
 
 void EventLoop::stop()
 {
     _running = false;
+}
+
+void EventLoop::cleanup()
+{
+    for (int i = _n_fds - 1; i >= 0; --i)
+    {
+        int fd = _pollfds[i].fd;
+        if (isListenerSocket(fd))
+        {
+            close(fd);
+            _listenSockets.erase(fd);
+            _clients.erase(fd);
+            _pollfds[i] = _pollfds.back();
+            _pollfds.pop_back();
+            _n_fds--;
+            continue;
+        }
+        if (_clients.find(fd) != _clients.end() && _clients[fd])
+        {
+            removeClient(i);
+            continue;
+        }
+        close(fd);
+        _clients.erase(fd);
+        _cgiPipeToClient.erase(fd);
+        _pollfds[i] = _pollfds.back();
+        _pollfds.pop_back();
+        _n_fds--;
+    }
+    _pollfds.clear();
+    _clients.clear();
+    _cgiPipeToClient.clear();
+    _listenSockets.clear();
+    _clientBirthOrder.clear();
+    _nextClientBirthOrder = 1;
 }
