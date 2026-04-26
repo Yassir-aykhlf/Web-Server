@@ -208,3 +208,13 @@ std::string convertHeaderToCgiEnvName(const std::string& headerName) {
     return name;
 }
 
+int printUsage(const char *program_name) {
+    std::cerr << "Usage: " << program_name << " [config_file]\n";
+    return EXIT_FAILURE;
+}
+
+std::string resolveConfigPath(int argc, char *argv[]) {
+    if (argc == 2)
+        return argv[1];
+    return DEFAULT_CONFIG_PATH;
+}

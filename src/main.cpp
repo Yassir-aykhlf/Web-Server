@@ -6,34 +6,19 @@
 int main(int argc, char **argv)
 {
     if (argc > 2)
-    {
-        std::cerr << "Usage: " << argv[0] << " [config_file]" << std::endl;
-        return 1;
-    }
+        return printUsage(argv[0]);
 
-    std::string configFile;
-    if (argc == 2)
-        configFile = argv[1];
-    else
-        configFile = "Configs/default.conf";
-    try
-    {
-        Config config(configFile);
-        config.load();
+    const std::string config_path = resolveConfigPath(argc, argv);
 
-        Server server(&config);
-        server.init();
-        server.run();
+    try {
+        return runServer(config_path);
     }
-    catch (const ConfigException &e)
-    {
-        std::cerr << "Configuration Error: " << e.what() << std::endl;
-        return 1;
+    catch (const ConfigException &e) {
+        std::cerr << "Configuration error: " << e.what() << '\n';
+        return EXIT_FAILURE;
     }
-    catch (const std::exception &e)
-    {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return 1;
+    catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << '\n';
+        return EXIT_FAILURE;
     }
-    return 0;
 }

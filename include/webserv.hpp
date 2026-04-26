@@ -44,6 +44,7 @@
 #define DEFAULT_HTTP_PORT 80
 #define DEFAULT_ROOT_PATH "/var/www/html"
 #define POLL_TIMEOUT_MS 200
+#define DEFAULT_CONFIG_PATH "config/default.conf"
 
 enum HttpStatus {
     STATUS_OK = 200,
@@ -85,3 +86,6 @@ std::string stripTrailingSlash(const std::string& str);
 std::string extractFilenameFromPath(const std::string& path);
 std::string resolveRootPath(const Location& location);
 std::string convertHeaderToCgiEnvName(const std::string& headerName);
+int printUsage(const char *program_name);
+std::string resolveConfigPath(int argc, char *argv[]);
+int runServer(const std::string &config_path);

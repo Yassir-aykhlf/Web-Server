@@ -21,6 +21,16 @@ void Server::handleSignal(int sig) {
     }
 }
 
+int runServer(const std::string &config_path) {
+    Config config(config_path);
+    config.load();
+
+    Server server(&config);
+    server.init();
+    server.run();
+    return EXIT_SUCCESS;
+}
+
 bool Server::init() {
     signal(SIGPIPE, SIG_IGN);
     signal(SIGINT, handleSignal);
