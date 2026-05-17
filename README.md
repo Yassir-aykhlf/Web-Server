@@ -59,11 +59,3 @@ Directory listing
 Custom error pages  
 Keep-alive connections  
 Chunked transfer encoding
-
-## Team Development
-
-This project was built by a team of 3 students:
-
-- **Student 1**: Configuration system
-- **Student 2**: Network layer (sockets, event loop)
-- **Student 3**: HTTP protocol (parsing, responses)
