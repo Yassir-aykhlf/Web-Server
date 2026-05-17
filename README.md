@@ -1,5 +1,3 @@
-# Webserv
-
 A C++98 HTTP/1.1 web server.
 
 ## What It Does
@@ -46,16 +44,3 @@ webserv/
 ├── www/             # Web content
 └── Makefile
 ```
-
-## Features
-
-Non-blocking I/O with `poll()`  
-Multiple virtual hosts  
-GET, POST, DELETE methods  
-Static file serving  
-File uploads  
-CGI support  
-Directory listing  
-Custom error pages  
-Keep-alive connections  
-Chunked transfer encoding
