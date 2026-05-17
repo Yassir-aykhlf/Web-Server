@@ -1,5 +1,3 @@
-A C++98 HTTP/1.1 web server.
-
 ## What It Does
 
 - Serves web pages and files
